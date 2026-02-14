@@ -1,0 +1,243 @@
+// ═══════════════════════════════════════════════════════════════════════
+// YouInst-Automator — Prisma Schema
+// Production-ready multi-tenant SaaS data model
+// ═══════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  image         String?
+  role          String    @default("user") // user | admin
+  plan          String    @default("basic") // basic | pro | agency
+  stripeCustomerId String?
+  stripeSubId   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  channels  Channel[]
+  apiKeys   ApiKey[]
+  sessions  Session[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  keyHash   String   @unique
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Channels & Platforms ─────────────────────────────────────────────
+
+model Channel {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  platform      String   // youtube | instagram
+  accessToken   String?
+  refreshToken  String?
+  clientId      String?
+  clientSecret  String?
+  platformChannelId String?
+  status        String   @default("active") // active | paused | error
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  niches        Niche[]
+  schedules     Schedule[]
+  postedVideos  PostedVideo[]
+  intelligenceConfig ContentIntelligenceConfig?
+}
+
+// ── Niches & Topics ──────────────────────────────────────────────────
+
+model Niche {
+  id          String   @id @default(cuid())
+  channelId   String
+  name        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  channel     Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  scripts     GeneratedScript[]
+  trendKeywords TrendKeyword[]
+  schedules   Schedule[]
+}
+
+model TrendKeyword {
+  id           String   @id @default(cuid())
+  nicheId      String
+  keyword      String
+  score        Float    @default(0)
+  source       String   @default("youtube")
+  viewEstimate Int?
+  competition  String?
+  usedCount    Int      @default(0)
+  lastUsed     DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  niche        Niche    @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+}
+
+// ── Content Pipeline ─────────────────────────────────────────────────
+
+model GeneratedScript {
+  id          String   @id @default(cuid())
+  nicheId     String
+  topic       String
+  hook        String
+  mainScript  String
+  cta         String
+  fullScript  String
+  ytTitle     String?
+  ytDescription String?
+  ytHashtags  String?
+  igCaption   String?
+  igHashtags  String?
+  hookScore   Float?
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+
+  niche         Niche          @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+  renderedVideo RenderedVideo?
+}
+
+model RenderedVideo {
+  id            String   @id @default(cuid())
+  scriptId      String   @unique
+  filePath      String
+  fileSize      Int?
+  durationSec   Float?
+  resolution    String   @default("1080x1920")
+  codec         String   @default("h264")
+  voicePath     String?
+  bgMusicPath   String?
+  captionsJson  String?
+  status        String   @default("rendering")
+  errorLog      String?
+  createdAt     DateTime @default(now())
+
+  script       GeneratedScript @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  postedVideos PostedVideo[]
+}
+
+model PostedVideo {
+  id             String   @id @default(cuid())
+  renderedVideoId String
+  channelId      String
+  platform       String
+  platformVideoId String?
+  url            String?
+  status         String   @default("pending")
+  errorLog       String?
+  postedAt       DateTime?
+  createdAt      DateTime @default(now())
+
+  renderedVideo  RenderedVideo @relation(fields: [renderedVideoId], references: [id], onDelete: Cascade)
+  channel        Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  analytics      Analytics[]
+}
+
+// ── Analytics ────────────────────────────────────────────────────────
+
+model Analytics {
+  id            String   @id @default(cuid())
+  postedVideoId String
+  views         Int      @default(0)
+  likes         Int      @default(0)
+  comments      Int      @default(0)
+  shares        Int      @default(0)
+  retention     Float?
+  ctr           Float?
+  fetchedAt     DateTime @default(now())
+
+  postedVideo   PostedVideo @relation(fields: [postedVideoId], references: [id], onDelete: Cascade)
+}
+
+// ── Scheduling ───────────────────────────────────────────────────────
+
+model Schedule {
+  id          String   @id @default(cuid())
+  channelId   String
+  nicheId     String
+  cronExpr    String
+  timezone    String   @default("UTC")
+  videosPerDay Int     @default(1)
+  isActive    Boolean  @default(true)
+  lastRun     DateTime?
+  nextRun     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  niche       Niche    @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+  jobs        JobLog[]
+}
+
+// ── Job Logging ──────────────────────────────────────────────────────
+
+model JobLog {
+  id          String   @id @default(cuid())
+  scheduleId  String?
+  jobType     String
+  status      String   @default("running")
+  payload     String?
+  result      String?
+  errorLog    String?
+  attempts    Int      @default(1)
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  schedule    Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+}
+
+// ── Content Intelligence Settings ────────────────────────────────────
+
+model ContentIntelligenceConfig {
+  id                  String   @id @default(cuid())
+  channelId           String   @unique
+  psychologyMode      String   @default("aggressive") // aggressive | inspirational | educational | controversial | calm
+  retentionLevel      String   @default("enhanced")   // basic | enhanced | viral
+  nicheRotationEnabled Boolean @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  channel             Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+}
+
+// ── Niche Usage Log (for intelligent rotation) ───────────────────────
+
+model NicheUsageLog {
+  id          String   @id @default(cuid())
+  channelId   String
+  nicheId     String
+  usedAt      DateTime @default(now())
+  views       Int      @default(0)
+  engagement  Float    @default(0)
+
+  @@index([channelId, usedAt])
+}

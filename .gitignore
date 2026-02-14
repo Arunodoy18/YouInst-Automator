@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Generated media & database
+output/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+
+/src/generated/prisma

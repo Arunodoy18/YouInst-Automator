@@ -1,0 +1,45 @@
+# ═══════════════════════════════════════════════════════════════
+# YouInst AI — Webapp (Next.js) Dockerfile
+# ═══════════════════════════════════════════════════════════════
+
+FROM node:20-alpine AS base
+
+# Install dependencies
+FROM base AS deps
+WORKDIR /app/webapp
+COPY webapp/package.json webapp/package-lock.json ./
+RUN npm ci
+
+# Build the webapp
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/webapp/node_modules ./webapp/node_modules
+COPY webapp/ ./webapp/
+COPY prisma/ ./prisma/
+COPY prisma.config.ts ./
+
+WORKDIR /app/webapp
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/webapp/public ./webapp/public
+COPY --from=builder --chown=nextjs:nodejs /app/webapp/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/webapp/.next/static ./webapp/.next/static
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
+
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000
+
+CMD ["node", "webapp/server.js"]

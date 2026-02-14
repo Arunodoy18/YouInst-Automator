@@ -1,0 +1,57 @@
+# ═══════════════════════════════════════════════════════════════
+# YouInst AI — Docker Compose
+# Services: webapp (Next.js), engine (workers), redis
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:./dev.db
+      - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-youinst-secret-change-in-prod}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - db_data:/app/prisma
+
+  workers:
+    build:
+      context: .
+      dockerfile: Dockerfile.engine
+    environment:
+      - DATABASE_URL=file:./dev.db
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - db_data:/app/prisma
+      - output_data:/app/output
+
+volumes:
+  redis_data:
+  db_data:
+  output_data:
