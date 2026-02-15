@@ -160,10 +160,11 @@ export async function renderWithCaptions(
     ...inputs,
     `-filter_complex_script "${filterPath}"`,
     mappings,
-    `-c:v libx264 -preset fast -crf 23`,
-    `-c:a aac -b:a 192k`,
+    `-c:v libx264 -preset medium -crf 28 -maxrate 8M -bufsize 16M`,
+    `-c:a aac -b:a 128k`,
     `-r 30`,
     `-shortest`,
+    `-movflags +faststart`,
     `-pix_fmt yuv420p`,
     `"${outFile}"`,
   ].join(" ");
@@ -171,7 +172,7 @@ export async function renderWithCaptions(
   console.log("  → Animating captions + merging audio…");
 
   try {
-    await execAsync(cmd, { maxBuffer: 20 * 1024 * 1024, timeout: 180_000 });
+    await execAsync(cmd, { maxBuffer: 20 * 1024 * 1024, timeout: 300_000 });
   } catch (err: any) {
     console.error(`  → Caption render failed: ${err.message}`);
 

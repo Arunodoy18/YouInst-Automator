@@ -109,7 +109,7 @@ export async function composeMotion(
     `-t ${targetDurationSec.toFixed(2)}`,
     `-i "${backgroundPath}"`,
     `-filter_script:v "${filterScript}"`,
-    `-c:v libx264 -preset fast -crf 23`,
+    `-c:v libx264 -preset ultrafast -crf 18`,
     `-r 30`,
     `-an`,
     `-pix_fmt yuv420p`,
@@ -136,7 +136,7 @@ export async function composeMotion(
       `-t ${targetDurationSec.toFixed(2)}`,
       `-i "${backgroundPath}"`,
       `-filter_script:v "${filterScript}"`,
-      `-c:v libx264 -preset fast -crf 23`,
+      `-c:v libx264 -preset ultrafast -crf 18`,
       `-r 30 -an -pix_fmt yuv420p`,
       `"${outFile}"`,
     ].join(" ");

@@ -6,6 +6,9 @@
  * 2. Cron-based schedule evaluation
  * 3. Job retry and failure handling
  * 4. Queue health monitoring
+ *
+ * Redis is OPTIONAL — when REDIS_URL is not set or Redis is unreachable,
+ * all queue functions gracefully no-op. The pipeline runs synchronously.
  */
 import { Queue, Worker, Job, QueueEvents } from "bullmq";
 import IORedis from "ioredis";
@@ -13,22 +16,68 @@ import * as cron from "node-cron";
 import prisma from "./db";
 import logger from "./logger";
 
-// ── Redis Connection ─────────────────────────────────────────────────
+// ── Redis Connection (fully lazy — no connection on module load) ─────
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const REDIS_URL = process.env.REDIS_URL || "";
 
-// Use a singleton pattern for the Redis connection to avoid multiple connections
 let connection: IORedis | null = null;
+let redisAvailable = false;
+let redisChecked = false;
+
+/**
+ * Returns true if REDIS_URL is configured.
+ */
+export function isRedisConfigured(): boolean {
+  return !!REDIS_URL;
+}
+
+/**
+ * Check if Redis is actually reachable. Caches the result.
+ */
+export async function isRedisAvailable(): Promise<boolean> {
+  if (!isRedisConfigured()) return false;
+  if (redisChecked) return redisAvailable;
+
+  try {
+    const testConn = new IORedis(REDIS_URL, {
+      maxRetriesPerRequest: 1,
+      enableReadyCheck: false,
+      lazyConnect: true,
+      connectTimeout: 3000,
+      retryStrategy() { return null; }, // No retries for test
+    });
+    await testConn.connect();
+    await testConn.ping();
+    testConn.disconnect();
+    redisAvailable = true;
+  } catch {
+    redisAvailable = false;
+  }
+  redisChecked = true;
+  return redisAvailable;
+}
 
 export function getRedisConnection(): IORedis {
   if (!connection) {
-    // BullMQ requires maxRetriesPerRequest to be null
+    if (!REDIS_URL) throw new Error("REDIS_URL not configured");
     connection = new IORedis(REDIS_URL, {
-      maxRetriesPerRequest: null, 
+      maxRetriesPerRequest: null, // Required by BullMQ
       enableReadyCheck: false,
+      lazyConnect: true,          // NO auto-connect on construction
+      retryStrategy(times: number) {
+        if (times > 3) return null;
+        return Math.min(times * 500, 2000);
+      },
     });
-    connection.on("error", (err: any) => logger.error("Redis connection error", { error: err.message }));
-    connection.on("connect", () => logger.info("Redis connected"));
+    connection.on("error", (err: any) => {
+      if ((connection as any)?.__errorLogged) return;
+      if (connection) (connection as any).__errorLogged = true;
+      logger.error("Redis connection error", { error: err.message });
+    });
+    connection.on("connect", () => {
+      if (connection) (connection as any).__errorLogged = false;
+      logger.info("Redis connected");
+    });
   }
   return connection;
 }
@@ -103,90 +152,49 @@ export interface AnalyticsFetchPayload {
   channelId: string;
 }
 
-// ── Add Jobs ─────────────────────────────────────────────────────────
+// ── Add Jobs (all guard against missing Redis) ──────────────────────
 
-export async function addTrendScanJob(payload: TrendScanPayload): Promise<string> {
-  const job = await getQueue(QUEUE_NAMES.TREND_SCAN).add("scan", payload, {
-    priority: 1,
-  });
+export async function addTrendScanJob(payload: TrendScanPayload): Promise<string | null> {
+  if (!isRedisConfigured()) { logger.debug("Redis not configured, skipping trend scan queue"); return null; }
+  const job = await getQueue(QUEUE_NAMES.TREND_SCAN).add("scan", payload, { priority: 1 });
   logger.info(`Queued trend scan job: ${job.id}`);
   return job.id!;
 }
 
-export async function addScriptGenJob(payload: ScriptGenPayload): Promise<string> {
-  const job = await getQueue(QUEUE_NAMES.SCRIPT_GEN).add("generate", payload, {
-    priority: 2,
-  });
+export async function addScriptGenJob(payload: ScriptGenPayload): Promise<string | null> {
+  if (!isRedisConfigured()) { logger.debug("Redis not configured, skipping script gen queue"); return null; }
+  const job = await getQueue(QUEUE_NAMES.SCRIPT_GEN).add("generate", payload, { priority: 2 });
   logger.info(`Queued script generation job: ${job.id}`);
   return job.id!;
 }
 
-export async function addVideoRenderJob(payload: VideoRenderPayload): Promise<string> {
-  // timeout is not a valid JobOption in recent BullMQ versions
-  const job = await getQueue(QUEUE_NAMES.VIDEO_RENDER).add("render", payload, {
-    priority: 3,
-  });
+export async function addVideoRenderJob(payload: VideoRenderPayload): Promise<string | null> {
+  if (!isRedisConfigured()) { logger.debug("Redis not configured, skipping video render queue"); return null; }
+  const job = await getQueue(QUEUE_NAMES.VIDEO_RENDER).add("render", payload, { priority: 3 });
   logger.info(`Queued video render job: ${job.id}`);
   return job.id!;
 }
 
-export async function addVideoUploadJob(payload: VideoUploadPayload): Promise<string> {
-  const job = await getQueue(QUEUE_NAMES.VIDEO_UPLOAD).add("upload", payload, {
-    priority: 4,
-  });
+export async function addVideoUploadJob(payload: VideoUploadPayload): Promise<string | null> {
+  if (!isRedisConfigured()) { logger.debug("Redis not configured, skipping video upload queue"); return null; }
+  const job = await getQueue(QUEUE_NAMES.VIDEO_UPLOAD).add("upload", payload, { priority: 4 });
   logger.info(`Queued video upload job: ${job.id}`);
   return job.id!;
 }
 
-export async function addAnalyticsFetchJob(payload: AnalyticsFetchPayload): Promise<string> {
+export async function addAnalyticsFetchJob(payload: AnalyticsFetchPayload): Promise<string | null> {
+  if (!isRedisConfigured()) { logger.debug("Redis not configured, skipping analytics queue"); return null; }
   const job = await getQueue(QUEUE_NAMES.ANALYTICS_FETCH).add("fetch", payload, {
     priority: 5,
-    delay: 3600_000, // Delay 1 hour after posting to let metrics accumulate
+    delay: 3600_000,
   });
   logger.info(`Queued analytics fetch job: ${job.id}`);
   return job.id!;
 }
 
-// ── Job Logging ──────────────────────────────────────────────────────
+// ── Job Logging (re-exported from jobLogger for backward compatibility) ──
 
-export async function logJob(
-  scheduleId: string | null,
-  jobType: string,
-  status: "running" | "completed" | "failed",
-  payload?: any,
-  result?: any,
-  errorLog?: string
-): Promise<string> {
-  const log = await prisma.jobLog.create({
-    data: {
-      scheduleId,
-      jobType,
-      status,
-      payload: payload ? JSON.stringify(payload) : null,
-      result: result ? JSON.stringify(result) : null,
-      errorLog: errorLog || null,
-      completedAt: status !== "running" ? new Date() : null,
-    },
-  });
-  return log.id;
-}
-
-export async function updateJobLog(
-  jobLogId: string,
-  status: "completed" | "failed",
-  result?: any,
-  errorLog?: string
-): Promise<void> {
-  await prisma.jobLog.update({
-    where: { id: jobLogId },
-    data: {
-      status,
-      result: result ? JSON.stringify(result) : undefined,
-      errorLog: errorLog || undefined,
-      completedAt: new Date(),
-    },
-  });
-}
+export { logJob, updateJobLog } from "./jobLogger";
 
 // ── Cron-Based Schedule Evaluator ────────────────────────────────────
 

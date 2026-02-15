@@ -170,6 +170,7 @@ export async function getBestKeywords(
 
 export async function runTrendScan(
   nicheId: string,
+  nicheDbId: string,
   seedQueries: string[]
 ): Promise<string[]> {
   logger.info(`Running trend scan for niche: ${nicheId}`);
@@ -194,8 +195,8 @@ export async function runTrendScan(
     })),
   ];
 
-  // Store in DB
-  await storeTrends(nicheId, allTrends);
+  // Store in DB with the actual database niche ID
+  await storeTrends(nicheDbId, allTrends);
 
   logger.info(`Trend scan complete: ${allTrends.length} keywords found`);
   return allTrends.map((t) => t.keyword);

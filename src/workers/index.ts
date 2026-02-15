@@ -12,20 +12,20 @@ dotenv.config();
 import { Worker, Job } from "bullmq";
 import {
   getRedisConnection,
+  isRedisConfigured,
   QUEUE_NAMES,
   TrendScanPayload,
   ScriptGenPayload,
   VideoRenderPayload,
   VideoUploadPayload,
   AnalyticsFetchPayload,
-  logJob,
-  updateJobLog,
   addScriptGenJob,
   addVideoRenderJob,
   addVideoUploadJob,
   startScheduleEvaluator,
-  shutdownQueues,
+  shutdownScheduler,
 } from "../lib/scheduler";
+import { logJob, updateJobLog } from "../lib/jobLogger";
 import { runTrendScan, getBestKeywords } from "../lib/trendEngine";
 import { generateAgentScript, generateTopics } from "../lib/agentBrain";
 import { getPerformanceFeedback, fetchAndStoreAnalytics } from "../lib/analyticsTracker";
@@ -33,6 +33,13 @@ import { runFullPipeline } from "../lib/orchestrator";
 import { getNicheConfig } from "../lib/niches";
 import prisma from "../lib/db";
 import logger from "../lib/logger";
+
+// ── Guard: Workers require Redis ─────────────────────────────────────
+if (!isRedisConfigured()) {
+  logger.error("REDIS_URL not configured. Workers require Redis. Exiting.");
+  console.error("❌ Workers require Redis. Set REDIS_URL in .env or run: docker run -d -p 6379:6379 redis:alpine");
+  process.exit(1);
+}
 
 const connection = getRedisConnection();
 
@@ -47,7 +54,7 @@ const trendWorker = new Worker<TrendScanPayload>(
     try {
       const niche = getNicheConfig(nicheId);
       const queries = seedQueries.length > 0 ? seedQueries : niche.topicSeeds.slice(0, 3);
-      await runTrendScan(nicheId, queries);
+      await runTrendScan(nicheId, nicheDbId, queries);
 
       // Get best keywords and generate a topic
       const keywords = await getBestKeywords(nicheDbId);
@@ -85,7 +92,7 @@ const trendWorker = new Worker<TrendScanPayload>(
       throw err;
     }
   },
-  { connection, concurrency: 2 }
+  { connection: connection as any, concurrency: 2 }
 );
 
 // ── Script Generation Worker ─────────────────────────────────────────
@@ -132,7 +139,7 @@ const scriptWorker = new Worker<ScriptGenPayload>(
       throw err;
     }
   },
-  { connection, concurrency: 1 }
+  { connection: connection as any, concurrency: 1 }
 );
 
 // ── Video Render Worker ──────────────────────────────────────────────
@@ -239,7 +246,7 @@ const renderWorker = new Worker<VideoRenderPayload>(
       throw err;
     }
   },
-  { connection, concurrency: 1 }
+  { connection: connection as any, concurrency: 1 }
 );
 
 // ── Video Upload Worker ──────────────────────────────────────────────
@@ -304,7 +311,7 @@ const uploadWorker = new Worker<VideoUploadPayload>(
       throw err;
     }
   },
-  { connection, concurrency: 2 }
+  { connection: connection as any, concurrency: 2 }
 );
 
 // ── Analytics Fetch Worker ───────────────────────────────────────────
@@ -324,7 +331,7 @@ const analyticsWorker = new Worker<AnalyticsFetchPayload>(
       throw err;
     }
   },
-  { connection, concurrency: 3 }
+  { connection: connection as any, concurrency: 3 }
 );
 
 // ── Worker Event Handlers ────────────────────────────────────────────
@@ -354,7 +361,7 @@ process.on("SIGINT", async () => {
   for (const worker of workers) {
     await worker.close();
   }
-  await shutdownQueues();
+  await shutdownScheduler();
   process.exit(0);
 });
 
@@ -363,6 +370,6 @@ process.on("SIGTERM", async () => {
   for (const worker of workers) {
     await worker.close();
   }
-  await shutdownQueues();
+  await shutdownScheduler();
   process.exit(0);
 });

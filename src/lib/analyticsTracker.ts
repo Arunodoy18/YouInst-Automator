@@ -87,7 +87,7 @@ export async function fetchInstagramStats(
     return { views: 0, likes: 0, comments: 0, shares: 0, reach: 0 };
   }
 
-  const url = `https://graph.facebook.com/v19.0/${platformVideoId}/insights?metric=plays,likes,comments,shares,reach&access_token=${channel.accessToken}`;
+  const url = `https://graph.instagram.com/v19.0/${platformVideoId}/insights?metric=plays,likes,comments,shares,reach&access_token=${channel.accessToken}`;
 
   try {
     const res = await fetch(url);
