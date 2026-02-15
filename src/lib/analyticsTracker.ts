@@ -91,7 +91,7 @@ export async function fetchInstagramStats(
 
   try {
     const res = await fetch(url);
-    const data = await res.json();
+    const data: any = await res.json();
 
     if (data.error) {
       logger.warn(`IG insights error: ${data.error.message}`);

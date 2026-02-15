@@ -48,6 +48,7 @@ import { pickBackground } from "./backgroundEngine";
 import { composeMotion } from "./motionComposer";
 import { renderWithCaptions } from "./captionAnimator";
 import { uploadToYouTube } from "./youtube";
+import { uploadToTempHost } from "./tempHosting";
 import { uploadToInstagram, isInstagramConfigured } from "./instagram";
 import { optimizeForAllPlatforms } from "./platformOptimizer";
 import { getPerformanceFeedback, fetchAllPendingAnalytics } from "./analyticsTracker";
@@ -387,10 +388,22 @@ export async function runFullPipeline(
     ) {
       try {
         logger.info("Uploading to Instagram…");
-        // Instagram requires a publicly accessible URL — for now use the local path
-        // In production, upload to cloud storage first
+        
+        // Instagram requires a publicly accessible URL
+        let publicVideoUrl = videoPath;
+        if (!videoPath.startsWith('http')) {
+          try {
+            logger.info(`Hosting video temporarily for Instagram ingestion...`);
+            publicVideoUrl = await uploadToTempHost(videoPath);
+          } catch (hostErr: any) {
+            logger.error(`Failed to host video for Instagram: ${hostErr.message}`);
+            // If hosting fails, we can try to proceed if we have a fallback, but likely IG will fail with local path
+            // We'll let it fail in uploadToInstagram then
+          }
+        }
+
         const igResult = await uploadToInstagram(
-          videoPath, // TODO: Replace with public URL in production
+          publicVideoUrl,
           optimized.instagram.caption
         );
 
