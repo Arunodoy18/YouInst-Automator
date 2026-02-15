@@ -12,7 +12,7 @@
 import https from "https";
 import logger from "./logger";
 
-const IG_GRAPH_BASE = "https://graph.facebook.com/v19.0";
+const IG_GRAPH_BASE = "https://graph.instagram.com/v19.0";
 
 interface IGUploadResult {
   platformVideoId: string;

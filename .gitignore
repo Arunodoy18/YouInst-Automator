@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+webapp/.next/
 
 # Generated media & database
 output/
