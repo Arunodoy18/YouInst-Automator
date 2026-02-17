@@ -25,7 +25,6 @@ COPY src/ ./src/
 COPY tsconfig.json ./
 COPY prisma/ ./prisma/
 COPY prisma.config.ts ./
-COPY .env ./
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -33,6 +32,7 @@ RUN npx prisma generate
 # Create output directory
 RUN mkdir -p output logs
 
+# Env vars are injected via docker-compose env_file, NOT baked in
 EXPOSE 6379
 
 CMD ["npx", "ts-node", "src/workers/index.ts"]

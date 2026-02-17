@@ -1,0 +1,74 @@
+# ═══════════════════════════════════════════════════════════════
+# YouInst AI — Render Blueprint (Production-Ready)
+# https://render.com/docs/blueprint-spec
+#
+# Deploy:
+#   1. Push to GitHub
+#   2. Render Dashboard → New Blueprint → Connect repo
+#   3. Fill in environment variables (marked sync: false)
+#   4. Deploy
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  # ── Main Web Service (Next.js + Engine Pipeline) ─────────────
+  - type: web
+    name: youinst-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile.webapp
+    dockerContext: .
+    # Plans: starter ($7/mo), standard ($25/mo), pro ($85/mo)
+    # Upgrade to standard for 2GB RAM = faster video renders
+    plan: starter
+    region: oregon        # Choose: oregon, frankfurt, singapore
+    
+    # Auto-deploy on git push
+    autoDeploy: true
+    branch: main
+    
+    # Health monitoring
+    healthCheckPath: /api/health
+    
+    # Persistent disk for SQLite + rendered videos
+    disk:
+      name: youinst-data
+      mountPath: /app/data
+      sizeGB: 5           # 1 GB free, then $0.25/GB/mo
+    
+    envVars:
+      # ── System ──
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/app/data/youinst.db
+      - key: PORT
+        value: 3000
+      
+      # ── Auth (NextAuth.js) ──
+      - key: NEXTAUTH_SECRET
+        generateValue: true # Auto-generates 64-char random string
+      - key: NEXTAUTH_URL
+        value: https://youinst-ai.onrender.com  # Update with YOUR service URL
+      
+      # ── AI (Required) ──
+      - key: GROQ_API_KEY
+        sync: false        # Enter in dashboard: gsk_...
+      
+      # ── YouTube Upload (Optional) ──
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_REFRESH_TOKEN
+        sync: false
+      
+      # ── Instagram Upload (Optional) ──
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false
+      - key: INSTAGRAM_BUSINESS_ACCOUNT_ID
+        sync: false
+      
+      # ── Background Media (Optional) ──
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: PIXABAY_API_KEY
+        sync: false
