@@ -2,18 +2,11 @@ import { exec } from "child_process";
 import path from "path";
 import fs from "fs";
 import { promisify } from "util";
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
 const execAsync = promisify(exec);
 
 /* ── Voice Configuration ──────────────────────────────────────────── */
-
-/**
- * Voice style:
- *   - Warm, friendly Indian-English neutral accent
- *   - Energetic but calm, curious and optimistic tone
- *   - Natural pauses after key points
- *   - Confident but not salesy
- */
 
 export interface VoiceConfig {
   /** Edge TTS voice identifier */
@@ -24,60 +17,275 @@ export interface VoiceConfig {
   pitch: string;
 }
 
-const DEFAULT_VOICE: VoiceConfig = {
-  voice: "en-IN-PrabhatNeural",  // Warm Indian-English male
-  rate: "+2%",                    // Slightly energetic but not rushed
-  pitch: "+1Hz",                  // Natural, warm register
-};
+/* ── Voice Profiles ───────────────────────────────────────────────── */
 
-/* ── SSML Pre-Processing ──────────────────────────────────────────── */
+export interface VoiceProfile {
+  id: string;
+  label: string;
+  description: string;
+  voice: VoiceConfig;
+  /** Language tag for script generation */
+  language: "english" | "hinglish" | "hindi";
+  /** Natural speech humanization settings */
+  humanize: {
+    /** Insert micro-pauses ("..." → natural breath) between sentences */
+    breathPauses: boolean;
+    /** Add filler markers for the LLM (yaar, bhai, arey) */
+    fillers: boolean;
+    /** Vary rate within the script (speed up/slow down for emphasis) */
+    rateVariation: boolean;
+  };
+  /** Optional: Use ElevenLabs voice cloning (requires ELEVENLABS_API_KEY) */
+  elevenlabs?: {
+    voiceId: string;
+    modelId?: string;
+  };
+}
 
 /**
- * Apply delivery rules to the script text:
- *   - Insert 400ms pause after app/product names (capitalized multi-word sequences)
- *   - Insert 200ms pause after numbers and benefits
- *   - Preserve natural sentence boundaries
+ * Pre-built voice profiles.
+ * "raju" is inspired by Raju Rastogi from 3 Idiots —
+ * young, expressive Hindi male (Sharman Joshi style), bilingual Hinglish delivery.
  */
-function applyDeliveryPacing(text: string): string {
+export const VOICE_PROFILES: Record<string, VoiceProfile> = {
+  raju: {
+    id: "raju",
+    label: "Raju Rastogi",
+    description: "Young, expressive Hindi male — Hinglish casual tone like Raju from 3 Idiots",
+    voice: {
+      voice: "hi-IN-MadhurNeural", // Young Hindi male, closest to Sharman Joshi
+      rate: "+8%",                  // Slightly fast — excited, energetic like Raju
+      pitch: "+3Hz",                // Higher pitch — youthful, animated
+    },
+    language: "hinglish",
+    humanize: {
+      breathPauses: true,
+      fillers: true,
+      rateVariation: true,
+    },
+    // ElevenLabs voice cloning for authentic Raju voice
+    // Set ELEVENLABS_API_KEY in .env to enable
+    elevenlabs: {
+      voiceId: "ErXwobaYiN019PkySvjV", // Antoni - smooth, engaging, professional voice
+      modelId: "eleven_multilingual_v2",
+    },
+  },
+  default: {
+    id: "default",
+    label: "Default (Indian English)",
+    description: "Warm, friendly Indian-English male — neutral professional tone",
+    voice: {
+      voice: "en-IN-PrabhatNeural",
+      rate: "+2%",
+      pitch: "+1Hz",
+    },
+    language: "english",
+    humanize: {
+      breathPauses: true,
+      fillers: false,
+      rateVariation: false,
+    },
+  },
+  madhur: {
+    id: "madhur",
+    label: "Madhur (Hindi)",
+    description: "Young Hindi male — energetic casual Hindi",
+    voice: {
+      voice: "hi-IN-MadhurNeural",
+      rate: "+5%",
+      pitch: "+1Hz",
+    },
+    language: "hindi",
+    humanize: {
+      breathPauses: true,
+      fillers: true,
+      rateVariation: false,
+    },
+  },
+  swara: {
+    id: "swara",
+    label: "Swara (Hindi Female)",
+    description: "Hindi female voice — authoritative, clear",
+    voice: {
+      voice: "hi-IN-SwaraNeural",
+      rate: "+3%",
+      pitch: "-1Hz",
+    },
+    language: "hinglish",
+    humanize: {
+      breathPauses: true,
+      fillers: false,
+      rateVariation: false,
+    },
+  },
+  neerja: {
+    id: "neerja",
+    label: "Neerja (English Female)",
+    description: "Indian-English female — warm, professional",
+    voice: {
+      voice: "en-IN-NeerjaNeural",
+      rate: "+2%",
+      pitch: "+0Hz",
+    },
+    language: "english",
+    humanize: {
+      breathPauses: true,
+      fillers: false,
+      rateVariation: false,
+    },
+  },
+};
+
+/** Get a voice profile by ID (falls back to "raju" as default) */
+export function getVoiceProfile(profileId?: string): VoiceProfile {
+  if (!profileId) return VOICE_PROFILES.raju;
+  return VOICE_PROFILES[profileId] ?? VOICE_PROFILES.raju;
+}
+
+/* ── Humanization Engine ──────────────────────────────────────────── */
+
+/**
+ * Apply human-like speech patterns to text before sending to TTS.
+ * Makes the voice sound natural, not robotic:
+ *   - Adds breath pauses (commas / ellipses for natural prosody)
+ *   - Inserts micro-pauses between sentences
+ *   - Adds emphasis markers on key words
+ */
+function humanizeText(text: string, profile: VoiceProfile): string {
   let processed = text;
 
-  // 1. Pause 0.4s after proper nouns / app names (2+ capitalized words or known patterns)
-  //    Matches: "Notion AI", "ChatGPT", "Stripe Atlas", single capitalized brand names, etc.
-  processed = processed.replace(
-    /\b([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)\b(?=[,.\s])/g,
-    (match) => {
-      // Only add pause for likely brand names (skip common words like "The", "This", sentence starters)
-      const skipWords = new Set(["The", "This", "That", "These", "Those", "When", "What", "Why", "How", "But", "And", "For", "You", "Your", "They", "Most", "Some", "All", "Each", "Every", "Just", "Even", "Still", "Now", "Here", "With", "From"]);
-      if (skipWords.has(match) || match.length < 3) return match;
-      return match; // Pauses handled via edge-tts rate rather than SSML (edge-tts uses --text not SSML)
-    }
-  );
+  if (profile.humanize.breathPauses) {
+    // Add micro pause after short sentences (for breath effect)
+    processed = processed.replace(/([.!?])\s+/g, "$1 ... ");
 
-  return processed;
+    // Add slight pause before impactful words
+    processed = processed.replace(
+      /\b(but|because|actually|seriously|honestly|listen|look|imagine|think about it)\b/gi,
+      ", $1"
+    );
+
+    // Add pause after numbers/stats for impact
+    processed = processed.replace(/(\d+[%KMBkm]?)\s/g, "$1, ");
+  }
+
+  if (profile.humanize.rateVariation) {
+    // For edge-tts we can't vary rate mid-stream, but we can add
+    // emphasis via pauses: slow down on key claims
+    processed = processed.replace(
+      /\b(never|always|everyone|nobody|impossible|guaranteed|secret|truth|shocking|insane|crazy)\b/gi,
+      "... $1 ..."
+    );
+  }
+
+  // Clean up multiple consecutive pauses / commas
+  processed = processed.replace(/(\.\.\.\s*){2,}/g, "... ");
+  processed = processed.replace(/(,\s*){2,}/g, ", ");
+  processed = processed.replace(/,\s*\.\.\./g, "...");
+
+  return processed.trim();
+}
+
+/* ── Main TTS Function ────────────────────────────────────────────── */
+
+/**
+ * Generate voice using ElevenLabs API (for voice cloning).
+ * Requires ELEVENLABS_API_KEY environment variable.
+ */
+async function generateVoiceElevenLabs(
+  text: string,
+  outputFile: string,
+  voiceId: string,
+  modelId: string = "eleven_multilingual_v2"
+): Promise<void> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    throw new Error("ELEVENLABS_API_KEY not set in environment");
+  }
+
+  const client = new ElevenLabsClient({ apiKey });
+
+  console.log(`  → Generating voice with ElevenLabs (voiceId: ${voiceId}, model: ${modelId})…`);
+
+  const audioStream = await client.textToSpeech.stream(voiceId, {
+    text,
+    modelId: modelId,
+    voiceSettings: {
+      stability: 0.5,
+      similarityBoost: 0.75,
+      style: 0.5,
+      useSpeakerBoost: true,
+    },
+  });
+
+  // Write stream to file
+  const writeStream = fs.createWriteStream(outputFile);
+  for await (const chunk of audioStream) {
+    writeStream.write(chunk);
+  }
+  writeStream.end();
+
+  // Wait for write to complete
+  await new Promise<void>((resolve, reject) => {
+    writeStream.on("finish", () => resolve());
+    writeStream.on("error", reject);
+  });
+
+  console.log(`  → ElevenLabs voice saved: ${outputFile}`);
 }
 
 /**
  * Convert text to speech using the Python `edge-tts` CLI.
  * Saves the result as an MP3 file.
  *
- * Uses Indian-English voice with warm, energetic delivery.
+ * If the voice profile has ElevenLabs configured and ELEVENLABS_API_KEY
+ * is set, uses ElevenLabs for authentic voice cloning.
+ *
+ * @param text - Script text to speak
+ * @param outputDir - Output directory for voice.mp3
+ * @param voiceConfig - Partial voice config overrides (legacy)
+ * @param profileId - Voice profile ID ("raju", "default", "madhur", "swara", "neerja")
  */
 export async function generateVoice(
   text: string,
   outputDir: string,
-  voiceConfig?: Partial<VoiceConfig>
+  voiceConfig?: Partial<VoiceConfig>,
+  profileId?: string
 ): Promise<string> {
   const outFile = path.resolve(outputDir, "voice.mp3");
-  const cfg = { ...DEFAULT_VOICE, ...voiceConfig };
+
+  // Resolve voice: profile takes precedence, then voiceConfig overrides, then default
+  const profile = getVoiceProfile(profileId);
+  const cfg: VoiceConfig = {
+    ...profile.voice,
+    ...voiceConfig,
+  };
 
   // Ensure output directory exists
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // Apply delivery pacing rules
-  const processedText = applyDeliveryPacing(text);
+  // Apply humanization to make speech sound natural
+  const processedText = humanizeText(text, profile);
 
+  // ── Check if ElevenLabs is available and configured ────────────────
+  if (profile.elevenlabs && process.env.ELEVENLABS_API_KEY) {
+    try {
+      await generateVoiceElevenLabs(
+        processedText,
+        outFile,
+        profile.elevenlabs.voiceId,
+        profile.elevenlabs.modelId
+      );
+      console.log(`  → Voice saved: ${outFile} (ElevenLabs, humanized=${profile.humanize.breathPauses})`);
+      return outFile;
+    } catch (err: any) {
+      console.warn(`  ⚠️  ElevenLabs failed (${err.message}), falling back to Edge TTS…`);
+      // Fall through to Edge TTS
+    }
+  }
+
+  // ── Fallback to Edge TTS ───────────────────────────────────────────
   // Escape double-quotes inside the text for shell safety
   const safeText = processedText.replace(/"/g, '\\"');
 
@@ -91,13 +299,13 @@ export async function generateVoice(
     `--write-media "${outFile}"`,
   ].join(" ");
 
-  console.log(`  → Running Edge TTS (${cfg.voice}, rate=${cfg.rate})…`);
+  console.log(`  → Running Edge TTS (${cfg.voice}, rate=${cfg.rate}, profile=${profile.id})…`);
   await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
 
   if (!fs.existsSync(outFile)) {
     throw new Error("TTS failed — voice.mp3 was not created.");
   }
 
-  console.log(`  → Voice saved: ${outFile}`);
+  console.log(`  → Voice saved: ${outFile} (humanized=${profile.humanize.breathPauses})`);
   return outFile;
 }

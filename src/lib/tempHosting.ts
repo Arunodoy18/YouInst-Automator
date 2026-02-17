@@ -19,8 +19,10 @@ export async function uploadToTempHost(filePath: string): Promise<string> {
   logger.info(`Uploading to temp host: ${path.basename(filePath)} (${mbSize} MB)...`);
 
   // Try hosts in order of reliability
+  // Note: 0x0.st sometimes blocks Meta crawlers, so try tmpfiles first for IG
   const hosts = [
     () => uploadToTmpfiles(filePath),
+    () => uploadTo0x0(filePath),
     () => uploadToFileIO(filePath),
   ];
 

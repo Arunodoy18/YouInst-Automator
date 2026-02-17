@@ -58,6 +58,7 @@ const DEFAULT_CONFIG: LoopConfig = {
 /** Map background mode to procedural loop style + color */
 const MODE_TO_LOOP: Record<string, { style: LoopStyle; baseHue: number }> = {
   endless_runner: { style: "grid_runner", baseHue: 25 },   // Warm orange
+  temple_run:     { style: "tunnel", baseHue: 40 },        // Ancient gold
   futuristic:     { style: "tunnel", baseHue: 200 },       // Cyan
   finance:        { style: "waveform", baseHue: 140 },     // Green
   productivity:   { style: "particles", baseHue: 270 },    // Purple

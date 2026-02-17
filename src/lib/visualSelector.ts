@@ -19,6 +19,7 @@
 
 export type BackgroundMode =
   | "endless_runner"
+  | "temple_run"
   | "futuristic"
   | "finance"
   | "productivity"
@@ -42,8 +43,8 @@ export interface VisualStrategy {
 /* ── Niche → Mode Default Map ──────────────────────────────────────── */
 
 const NICHE_MODE_MAP: Record<string, BackgroundMode> = {
-  tech: "futuristic",
-  ai: "futuristic",
+  tech: "temple_run",
+  ai: "temple_run",
   "ai-motivation": "endless_runner",
   "finance-tech": "finance",
   money: "finance",
@@ -144,6 +145,12 @@ const PSYCH_INTENSITY_MAP: Record<string, VisualStrategy["motionIntensity"]> = {
 const MODE_PROFILES: Record<BackgroundMode, Omit<VisualStrategy, "mode">> = {
   endless_runner: {
     accentColor: "#FF6B35",
+    motionIntensity: "high",
+    patternInterruptSec: 5,
+    captionStyle: "bold_center",
+  },
+  temple_run: {
+    accentColor: "#FFD700",
     motionIntensity: "high",
     patternInterruptSec: 5,
     captionStyle: "bold_center",

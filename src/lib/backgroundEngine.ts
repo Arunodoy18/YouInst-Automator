@@ -23,6 +23,7 @@ const VIDEO_EXTS = new Set([".mp4", ".webm", ".mov", ".avi", ".mkv"]);
 /** Mode → Pexels search keywords for the stock-video fallback */
 const MODE_SEARCH_QUERIES: Record<BackgroundMode, string> = {
   endless_runner: "running track aerial dark cinematic",
+  temple_run: "ancient temple corridor stone ruins adventure cinematic",
   futuristic: "technology abstract dark neon loop",
   finance: "stock market graph dark particles",
   productivity: "minimalist desk workspace dark calm",

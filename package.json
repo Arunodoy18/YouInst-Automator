@@ -4,8 +4,10 @@
   "description": "AI Shorts Automation Engine — Generate, render, and upload YouTube Shorts from a single CLI command.",
   "private": true,
   "scripts": {
-    "generate": "ts-node src/cli/generate.ts",
+    "generate": "ts-node src/cli/generate.ts generate",
     "pipeline": "ts-node src/lib/orchestrator.ts",
+    "cli": "ts-node src/cli/generate.ts",
+    "status": "ts-node src/cli/generate.ts status",
     "workers": "ts-node src/workers/index.ts",
     "webapp": "cd webapp && npm run dev",
     "webapp:build": "cd webapp && npm run build",
@@ -14,6 +16,7 @@
     "db:studio": "npx prisma studio"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.36.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
     "@prisma/adapter-better-sqlite3": "^7.4.0",
     "@prisma/client": "^7.4.0",
