@@ -55,10 +55,13 @@ export interface TopicSuggestion {
 
 export type PsychologyMode = "aggressive" | "inspirational" | "educational" | "controversial" | "calm";
 export type RetentionLevel = "basic" | "enhanced" | "viral";
+export type ScriptLanguage = "english" | "hinglish" | "hindi";
 
 export interface IntelligenceConfig {
   psychologyMode: PsychologyMode;
   retentionLevel: RetentionLevel;
+  /** Script language — "hinglish" = Hindi + English mixed (default) */
+  language: ScriptLanguage;
 }
 
 const PSYCHOLOGY_MODE_TRIGGERS: Record<PsychologyMode, string[]> = {
@@ -98,6 +101,26 @@ const RETENTION_LEVEL_CONFIG: Record<RetentionLevel, { triggerCount: number; pac
 const DEFAULT_INTELLIGENCE: IntelligenceConfig = {
   psychologyMode: "aggressive",
   retentionLevel: "enhanced",
+  language: "hinglish",
+};
+
+// ── Language Style Directives ────────────────────────────────────────
+
+const LANGUAGE_STYLE: Record<ScriptLanguage, string> = {
+  english: `Write the script entirely in English. Use natural, conversational Indian-English tone.`,
+  hinglish: `Write the script in HINGLISH — a natural mix of Hindi and English, like how young Indians actually talk in real life.
+Rules for Hinglish:
+- Mix Hindi and English naturally in every sentence (e.g. "Yaar, ye AI tool itna powerful hai ki tu imagine bhi nahi kar sakta")
+- Use casual Hindi words: yaar, bhai, dekh, sun, matlab, arey, achha, sach mein, bilkul, bas, pata hai, samjha
+- Keep technical/English terms in English (AI, app, tool, startup, money, business)
+- Speak like you're telling your friend something exciting — NOT like a news anchor
+- Use "tu/tum" (informal you), NOT "aap" (formal)
+- Add reactions: "Arey!", "Suno!", "Dekho!", "Pata hai kya?", "Bhai seriously!"
+- NO pure Hindi — always mix both languages in every sentence
+- The vibe should feel like Raju Rastogi talking to his friends — animated, real, from-the-heart`,
+  hindi: `Write the script entirely in Hindi (Devanagari script NOT required — use romanized Hindi).
+Use casual, everyday Hindi — like talking to a friend. Not formal or news-anchor style.
+Keep technical terms in English where natural (AI, app, tool, startup).`,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -223,11 +246,16 @@ export async function generateAgentScript(
 
   const modeStyle = PSYCHOLOGY_MODE_STYLE[intel.psychologyMode];
 
+  const langDirective = LANGUAGE_STYLE[intel.language ?? "hinglish"];
+
   const prompt = `You are an elite viral short-form video scriptwriter for the ${niche.label} niche.
 
 TOPIC: "${topic}"
 
 STYLE DIRECTIVE: ${modeStyle}
+
+LANGUAGE:
+${langDirective}
 
 PSYCHOLOGICAL HOOKS TO USE:
 ${triggerInstructions}
@@ -238,10 +266,18 @@ ${retentionCfg.pacingNote}
 Generate a complete YouTube Shorts / Instagram Reels script package.
 
 RULES FOR THE SCRIPT:
-- Hook (first sentence): Must grab attention in under 3 seconds. Short, punchy, emotional.
-- Main script: 4-6 sentences. Conversational tone, not robotic. Short sentences. Each adds value.
+- Hook (first sentence): Must grab attention in under 2 seconds. Short, punchy, emotional.
+- Main script: 3-5 sentences. Completely human conversational tone — like you're telling your best friend something incredible. NOT robotic. Short sentences. Each adds value.
 - CTA: 1 sentence. Niche-relevant call-to-action.
-- Total script when read aloud: 30-60 seconds.
+- Total script when read aloud: 30-40 seconds MAX. Keep it tight — around 70-90 words total.
+- Sound like a REAL PERSON talking, not a narrator. Use contractions, reactions, informal language.
+
+HUMANIZATION RULES:
+- Write like you SPEAK, not like you write
+- Add natural reactions: "Bhai seriously!", "No really!", "Think about it!"
+- Use short punchy sentences, not long paragraphs
+- Every sentence should feel like something a real person would actually say out loud
+- The listener should feel like their friend is excitedly telling them something
 
 RULES FOR SEO:
 - YouTube title: ≤100 characters, keyword-rich, curiosity-driven

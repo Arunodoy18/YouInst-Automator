@@ -14,6 +14,7 @@ import {
   getRedisConnection,
   isRedisConfigured,
   QUEUE_NAMES,
+  FullPipelinePayload,
   TrendScanPayload,
   ScriptGenPayload,
   VideoRenderPayload,
@@ -42,6 +43,57 @@ if (!isRedisConfigured()) {
 }
 
 const connection = getRedisConnection();
+
+// ── Full Pipeline Worker (runs complete 13-step orchestrator) ────────
+
+const fullPipelineWorker = new Worker<FullPipelinePayload>(
+  QUEUE_NAMES.FULL_PIPELINE,
+  async (job: Job<FullPipelinePayload>) => {
+    const { nicheId, nicheDbId, channelId, topic, jobLogId } = job.data;
+
+    logger.info(`Full pipeline worker started: niche=${nicheId}, topic=${topic || "auto"}`);
+
+    try {
+      const result = await runFullPipeline(nicheId, nicheDbId, channelId, undefined, topic);
+
+      // Update the API-level job log
+      await prisma.jobLog.update({
+        where: { id: jobLogId },
+        data: {
+          status: "completed",
+          result: JSON.stringify({
+            topic: result.topic,
+            uploads: result.uploads.map(u => ({ platform: u.platform, url: u.url })),
+            scriptDbId: result.scriptDbId,
+            renderedVideoDbId: result.renderedVideoDbId,
+          }),
+          completedAt: new Date(),
+        },
+      });
+
+      logger.info(`Full pipeline completed: ${result.uploads.length} uploads`);
+      return result;
+    } catch (err: any) {
+      logger.error(`Full pipeline failed: ${err.message}`);
+
+      await prisma.jobLog.update({
+        where: { id: jobLogId },
+        data: {
+          status: "failed",
+          errorLog: err.message,
+          completedAt: new Date(),
+        },
+      }).catch(() => {}); // Don't fail the worker if log update fails
+
+      throw err;
+    }
+  },
+  {
+    connection: connection as any,
+    concurrency: 1, // Only 1 pipeline at a time (heavy resource usage)
+    lockDuration: 600_000, // 10 min lock (pipeline takes 2-5 min)
+  }
+);
 
 // ── Trend Scan Worker ────────────────────────────────────────────────
 
@@ -336,7 +388,7 @@ const analyticsWorker = new Worker<AnalyticsFetchPayload>(
 
 // ── Worker Event Handlers ────────────────────────────────────────────
 
-const workers = [trendWorker, scriptWorker, renderWorker, uploadWorker, analyticsWorker];
+const workers = [fullPipelineWorker, trendWorker, scriptWorker, renderWorker, uploadWorker, analyticsWorker];
 
 for (const worker of workers) {
   worker.on("completed", (job) => {

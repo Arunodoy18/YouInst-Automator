@@ -85,6 +85,7 @@ export function getRedisConnection(): IORedis {
 // ── Queue Definitions ────────────────────────────────────────────────
 
 export const QUEUE_NAMES = {
+  FULL_PIPELINE: "full-pipeline",
   TREND_SCAN: "trend-scan",
   SCRIPT_GEN: "script-generation",
   VIDEO_RENDER: "video-render",
@@ -115,6 +116,14 @@ export function getQueue(name: QueueName): Queue {
 }
 
 // ── Job Payload Types ────────────────────────────────────────────────
+
+export interface FullPipelinePayload {
+  nicheId: string;
+  nicheDbId: string;
+  channelId: string;
+  topic?: string;
+  jobLogId: string;
+}
 
 export interface TrendScanPayload {
   nicheId: string;
@@ -153,6 +162,17 @@ export interface AnalyticsFetchPayload {
 }
 
 // ── Add Jobs (all guard against missing Redis) ──────────────────────
+
+export async function addFullPipelineJob(payload: FullPipelinePayload): Promise<string | null> {
+  if (!isRedisConfigured()) { logger.debug("Redis not configured, skipping full-pipeline queue"); return null; }
+  const job = await getQueue(QUEUE_NAMES.FULL_PIPELINE).add("run", payload, {
+    priority: 1,
+    attempts: 2,
+    backoff: { type: "exponential", delay: 10000 },
+  });
+  logger.info(`Queued full-pipeline job: ${job.id}`);
+  return job.id!;
+}
 
 export async function addTrendScanJob(payload: TrendScanPayload): Promise<string | null> {
   if (!isRedisConfigured()) { logger.debug("Redis not configured, skipping trend scan queue"); return null; }

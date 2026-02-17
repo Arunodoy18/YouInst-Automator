@@ -20,6 +20,7 @@ import type { VerifiedResearch } from "./factResearch";
 import type {
   PsychologyMode,
   RetentionLevel,
+  ScriptLanguage,
   IntelligenceConfig,
 } from "./agentBrain";
 
@@ -98,6 +99,19 @@ const RETENTION_LEVEL_PACING: Record<RetentionLevel, string> = {
     "FAST pacing. Open-loop every 2 sentences. Maximum dopamine triggers.",
 };
 
+const LANGUAGE_DIRECTIVE: Record<ScriptLanguage, string> = {
+  english: `Write entirely in English. Natural, conversational Indian-English tone. Sound like a real person talking.`,
+  hinglish: `Write in HINGLISH — a natural mix of Hindi and English, like how young Indians actually talk.
+Rules:
+- Mix Hindi and English naturally: "Yaar, ye tool itna powerful hai ki tu imagine bhi nahi kar sakta"
+- Use casual words: yaar, bhai, dekh, sun, matlab, arey, achha, sach mein, bilkul, bas, samjha
+- Keep technical terms in English (AI, app, tool, money)
+- Speak like Raju Rastogi telling his friends something exciting — animated, real, from-the-heart
+- Use "tu/tum" not "aap"
+- Add reactions: "Arey!", "Suno!", "Dekho!", "Bhai seriously!"`,
+  hindi: `Write in romanized Hindi (not Devanagari). Casual everyday Hindi. Keep tech terms in English.`,
+};
+
 // ── Step 3: Generate Content from Verified Facts ─────────────────────
 
 /**
@@ -116,6 +130,7 @@ export async function generateFactContent(
   const niche = getNicheConfig(nicheId);
   const mode = intelligence?.psychologyMode ?? "aggressive";
   const retention = intelligence?.retentionLevel ?? "enhanced";
+  const lang = intelligence?.language ?? "hinglish";
 
   const verifiedDataJson = JSON.stringify(research, null, 2);
   const itemNames = research.items.map((i) => i.name);
@@ -136,19 +151,24 @@ YEAR: ${year}
 STYLE: ${PSYCHOLOGY_MODE_STYLE[mode]}
 PACING: ${RETENTION_LEVEL_PACING[retention]}
 
+LANGUAGE:
+${LANGUAGE_DIRECTIVE[lang]}
+
 ═══════════════════════════════════
 CONTENT REQUIREMENTS:
 ═══════════════════════════════════
 
-1. HOOK (7-9 words):
+1. HOOK (5-8 words):
    - Must stop the scroll in under 2 seconds
    - Reference a SPECIFIC item from the verified data by its EXACT name
    - No generic hooks like "You won't believe this"
 
-2. VOICE SCRIPT (40-55 seconds when read aloud):
+2. VOICE SCRIPT (30-40 seconds when read aloud, ~70-90 words):
    - Each line = 1 spoken sentence with a timestamp (seconds from start)
    - Use ONLY the items from the verified data — mention each by EXACT name
-   - Natural, conversational delivery — not robotic
+   - COMPLETELY HUMAN conversational delivery — like you're telling your best friend
+   - Sound like a real person talking excitedly, NOT a narrator or AI
+   - Use reactions, short sentences, informal language
    - Never say "in ${year - 1}" or reference any past year
    - Every fact stated must come directly from the verified items
 
@@ -183,14 +203,15 @@ ABSOLUTE RULES — VIOLATION = FAILURE:
 - Never mention any year before ${year}.
 - Every claim in the script must trace back to the verified items.
 - If the verified data has 5 items, the script must mention all 5.
+- Total script MUST be 30-40 seconds when read aloud (70-90 words MAX).
 
 OUTPUT (JSON only, no markdown, no fences):
 {
-  "hook": "7-9 word hook referencing a specific verified item",
+  "hook": "5-8 word hook referencing a specific verified item",
   "script": [
     { "line": "First spoken sentence.", "timestamp_sec": 0 },
     { "line": "Second spoken sentence.", "timestamp_sec": 5 },
-    { "line": "Continue until 40-55 seconds total.", "timestamp_sec": 10 }
+    { "line": "Continue until 30-40 seconds total.", "timestamp_sec": 10 }
   ],
   "on_screen_text": [
     { "text": "Short overlay text", "timestamp_sec": 0 },

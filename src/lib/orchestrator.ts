@@ -38,9 +38,10 @@ import {
   type IntelligenceConfig,
   type PsychologyMode,
   type RetentionLevel,
+  type ScriptLanguage,
 } from "./agentBrain";
 import { runTrendScan, getBestKeywords } from "./trendEngine";
-import { generateVoice } from "./tts";
+import { generateVoice, getVoiceProfile } from "./tts";
 import { transcribeWithWhisper, groupWordsIntoCaptions } from "./whisper";
 import { fetchBackgroundMusic } from "./pixabay";
 import { renderVideo, getAudioDuration } from "./videoRenderer";
@@ -90,17 +91,23 @@ export interface PipelineResult {
  * @param channelId - The Channel database ID (for uploading + OAuth)
  * @param scheduleId - Optional schedule ID for job logging
  * @param topicOverride - Optional: skip topic generation and use this topic
+ * @param voiceProfileId - Optional: voice profile ("raju", "default", "madhur", "swara", "neerja")
+ * @param languageOverride - Optional: script language ("english", "hinglish", "hindi")
  */
 export async function runFullPipeline(
   nicheId: string,
   nicheDbId: string,
   channelId: string,
   scheduleId?: string,
-  topicOverride?: string
+  topicOverride?: string,
+  voiceProfileId?: string,
+  languageOverride?: string
 ): Promise<PipelineResult> {
   const jobLogId = await logJob(scheduleId || null, "full-pipeline", "running", {
     nicheId,
     channelId,
+    voiceProfileId: voiceProfileId || "raju",
+    language: languageOverride || "hinglish",
   });
 
   const runId = `${nicheId}-${Date.now()}`;
@@ -129,6 +136,11 @@ export async function runFullPipeline(
       logger.warn(`AI performance analysis failed (non-fatal): ${err.message}`);
     }
 
+    // Resolve voice profile for this run
+    const voiceProfile = getVoiceProfile(voiceProfileId);
+    const resolvedLanguage: ScriptLanguage = (languageOverride as ScriptLanguage) || voiceProfile.language;
+    logger.info(`Voice profile: ${voiceProfile.id} (${voiceProfile.label}), language: ${resolvedLanguage}`);
+
     // ─── Step 2: Load Intelligence Config ─────────────────────────
     logger.info("[2/13] Loading intelligence config…");
     const intelConfig = await prisma.contentIntelligenceConfig.findUnique({
@@ -137,6 +149,7 @@ export async function runFullPipeline(
     const intelligence: IntelligenceConfig = {
       psychologyMode: (intelConfig?.psychologyMode as PsychologyMode) ?? "aggressive",
       retentionLevel: (intelConfig?.retentionLevel as RetentionLevel) ?? "enhanced",
+      language: resolvedLanguage,
     };
     logger.info(`Intelligence: mode=${intelligence.psychologyMode}, retention=${intelligence.retentionLevel}, rotation=${intelConfig?.nicheRotationEnabled ?? false}`);
 
@@ -292,7 +305,7 @@ export async function runFullPipeline(
     // ─── Step 8: Render Video (TTS + Captions + Assets) ────────
     logger.info("[8/13] Rendering video…");
     logger.info("  [8a] Generating voice-over…");
-    const voicePath = await generateVoice(agentScript.fullScript, outputDir);
+    const voicePath = await generateVoice(agentScript.fullScript, outputDir, undefined, voiceProfile.id);
 
     logger.info("  [8b] Transcribing for word-level captions…");
     const segments = await transcribeWithWhisper(voicePath, outputDir);
@@ -560,15 +573,19 @@ export async function runFullPipeline(
 
 /**
  * Run pipeline from CLI with minimal setup.
- * Usage: npx ts-node src/lib/orchestrator.ts <nicheId> [topic]
+ * Usage: npx ts-node src/lib/orchestrator.ts <nicheId> [topic] [voiceProfile] [language]
  */
 async function cliMain() {
   const nicheId = process.argv[2];
   const topicOverride = process.argv[3];
+  const voiceProfileId = process.argv[4] || "raju";
+  const languageOverride = process.argv[5] || undefined;
 
   if (!nicheId || !NICHE_IDS.includes(nicheId)) {
-    console.error(`Usage: npx ts-node src/lib/orchestrator.ts <nicheId> [topic]`);
+    console.error(`Usage: npx ts-node src/lib/orchestrator.ts <nicheId> [topic] [voiceProfile] [language]`);
     console.error(`Available niches: ${NICHE_IDS.join(", ")}`);
+    console.error(`Voice profiles: raju (default), default, madhur, swara, neerja`);
+    console.error(`Languages: hinglish (default), english, hindi`);
     process.exit(1);
   }
 
@@ -603,6 +620,7 @@ async function cliMain() {
   console.log(`\nYouInst SaaS Pipeline`);
   console.log(`════════════════════════════════════════`);
   console.log(`Niche: ${nicheId} | Channel: ${channel.name}`);
+  console.log(`Voice: ${voiceProfileId} | Language: ${languageOverride || "auto"}`);
   if (topicOverride) console.log(`Topic: "${topicOverride}"`);
   console.log();
 
@@ -611,7 +629,9 @@ async function cliMain() {
     niche.id,
     channel.id,
     undefined,
-    topicOverride
+    topicOverride,
+    voiceProfileId,
+    languageOverride
   );
 
   console.log(`\n════════════════════════════════════════`);
