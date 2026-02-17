@@ -1,12 +1,33 @@
 /** @type {import('next').NextConfig} */
 const path = require("path");
 
+/** Packages that must NOT be bundled by webpack (native / platform binaries) */
+const ENGINE_EXTERNALS = [
+  "better-sqlite3",
+  "ffmpeg-static",
+  "@ffprobe-installer/ffprobe",
+  "typescript",
+  "source-map-support",
+  "esbuild",
+];
+
+/** Regex: any @remotion/* package import */
+const REMOTION_RE = /^@remotion\//;
+
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   experimental: {
-    serverComponentsExternalPackages: ["better-sqlite3", "groq-sdk", "winston"],
+    serverComponentsExternalPackages: [
+      ...ENGINE_EXTERNALS,
+      "@remotion/renderer",
+      "@remotion/bundler",
+      "@remotion/cli",
+      "groq-sdk",
+      "winston",
+      "edge-tts",
+    ],
   },
-  // Allow importing from the engine src directory
   transpilePackages: [],
   webpack: (config, { isServer }) => {
     config.resolve.fallback = {
@@ -16,18 +37,30 @@ const nextConfig = {
       tls: false,
       child_process: false,
     };
-    // Allow resolving modules from root node_modules (for engine imports)
     config.resolve.modules = [
       ...(config.resolve.modules || []),
       path.resolve(__dirname, "../node_modules"),
     ];
-    // Resolve @prisma/client from the root node_modules so it finds the generated client
     if (isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
-        "@prisma/client": path.resolve(__dirname, "../node_modules/@prisma/client"),
+        "@prisma/client": path.resolve(
+          __dirname,
+          "../node_modules/@prisma/client"
+        ),
       };
-      config.externals = [...(config.externals || []), "better-sqlite3"];
+      // Function-based externals to catch all @remotion/* sub-paths
+      const prevExternals = config.externals || [];
+      config.externals = [
+        ...prevExternals,
+        ...ENGINE_EXTERNALS,
+        function ({ request }, callback) {
+          if (REMOTION_RE.test(request)) {
+            return callback(null, "commonjs " + request);
+          }
+          callback();
+        },
+      ];
     }
     return config;
   },

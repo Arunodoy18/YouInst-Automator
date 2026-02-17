@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthUser } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Get user's channels first
+  const channels = await prisma.channel.findMany({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  const channelIds = channels.map((c) => c.id);
+
   const niches = await prisma.niche.findMany({
+    where: { channelId: { in: channelIds } },
     include: {
       _count: { select: { scripts: true, trendKeywords: true } },
       channel: { select: { name: true, platform: true } },

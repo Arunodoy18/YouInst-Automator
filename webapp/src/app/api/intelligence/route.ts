@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthUser } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +10,13 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    // Get the first user's channel (multi-user: use session)
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const channel = await prisma.channel.findFirst({
+      where: { userId: user.id },
       include: { intelligenceConfig: true },
     });
 
@@ -100,11 +106,9 @@ export async function PUT(req: NextRequest) {
     }
 
     // Get or create channel
-    let user = await prisma.user.findFirst();
+    const user = await getAuthUser();
     if (!user) {
-      user = await prisma.user.create({
-        data: { email: "dashboard@youinst.local", name: "Dashboard User" },
-      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     let channel = await prisma.channel.findFirst({ where: { userId: user.id } });
     if (!channel) {

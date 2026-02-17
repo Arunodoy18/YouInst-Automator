@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthUser } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  // Aggregate analytics
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Aggregate analytics (global for now — multi-tenant analytics scoping can be refined later)
   const totals = await prisma.analytics.aggregate({
     _sum: { views: true, likes: true, comments: true, shares: true },
     _avg: { retention: true, ctr: true },

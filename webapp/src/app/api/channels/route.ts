@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthUser } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const channels = await prisma.channel.findMany({
+    where: { userId: user.id },
     include: {
       _count: { select: { niches: true, postedVideos: true, schedules: true } },
       user: { select: { email: true } },
@@ -17,28 +24,19 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { name, platform, userId } = body;
+    const { name, platform } = body;
 
     if (!name || !platform) {
       return NextResponse.json(
         { error: "name and platform are required" },
         { status: 400 }
       );
-    }
-
-    // Find or create user
-    let user;
-    if (userId) {
-      user = await prisma.user.findUnique({ where: { id: userId } });
-    }
-    if (!user) {
-      user = await prisma.user.findFirst();
-    }
-    if (!user) {
-      user = await prisma.user.create({
-        data: { email: "api@youinst.local", name: "API User" },
-      });
     }
 
     const channel = await prisma.channel.create({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthUser } from "@/lib/apiAuth";
 import {
   analyzePerformance,
   collectChannelMetrics,
@@ -27,8 +28,13 @@ export async function GET(req: NextRequest) {
       10
     );
 
-    // Get user's channel (multi-user: use session)
-    const channel = await prisma.channel.findFirst();
+    // Get user's channel
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const channel = await prisma.channel.findFirst({ where: { userId: user.id } });
     if (!channel) {
       return NextResponse.json(
         { error: "No channel found. Create a channel first." },

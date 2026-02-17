@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SidebarUser from "@/components/SidebarUser";
 import {
   LayoutDashboard,
   Tv2,
@@ -51,15 +52,7 @@ export default function DashboardLayout({
           ))}
         </nav>
         <div className="p-4 border-t border-zinc-800">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs font-bold">
-              U
-            </div>
-            <div>
-              <p className="text-sm font-medium">User</p>
-              <p className="text-xs text-zinc-500">Pro Plan</p>
-            </div>
-          </div>
+          <SidebarUser />
         </div>
       </aside>
 

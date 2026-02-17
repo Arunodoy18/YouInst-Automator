@@ -1,27 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAuthUser } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // 5 min max for direct execution mode
 
-// Note: In production, this calls the engine's orchestrator.
-// For the webapp, we create the DB records and optionally trigger
-// the pipeline via the BullMQ queue.
-
+/**
+ * POST /api/generate
+ *
+ * Triggers the full 13-step autonomous pipeline.
+ *
+ * Dual-mode execution:
+ *   - Redis available → enqueue to BullMQ, workers execute
+ *   - Redis unavailable → fire-and-forget direct execution
+ *
+ * Body: { nicheId: string, topic?: string }
+ * Returns: { jobId, status: "running" | "queued" }
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { nicheId, topic } = body;
+    const { nicheId, topic, voiceProfileId, language } = body;
 
     if (!nicheId) {
       return NextResponse.json({ error: "nicheId is required" }, { status: 400 });
     }
 
-    // Ensure user, channel, and niche exist (auto-create for demo)
-    let user = await prisma.user.findFirst();
+    // Get authenticated user
+    const user = await getAuthUser();
     if (!user) {
-      user = await prisma.user.create({
-        data: { email: "dashboard@youinst.local", name: "Dashboard User" },
-      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     let channel = await prisma.channel.findFirst({ where: { userId: user.id } });
@@ -44,30 +52,109 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Create a job log entry to track the pipeline
+    // Create job log entry for dashboard polling
     const jobLog = await prisma.jobLog.create({
       data: {
         jobType: "full-pipeline",
-        status: "queued",
-        payload: JSON.stringify({ nicheId, topic, channelId: channel.id }),
+        status: "running",
+        payload: JSON.stringify({
+          nicheId,
+          topic,
+          channelId: channel.id,
+          nicheDbId: niche.id,
+          voiceProfileId: voiceProfileId || "raju",
+          language: language || "hinglish",
+        }),
       },
     });
 
-    // In full production mode, this would use BullMQ:
-    // await addTrendScanJob({ nicheId, nicheDbId: niche.id, seedQueries: [] });
-    //
-    // For now, return immediately with job ID for the dashboard to poll.
-    // The actual pipeline runs via: npx ts-node src/lib/orchestrator.ts
+    // ── Dual-mode execution ────────────────────────────────────────────
+    const redisUrl = process.env.REDIS_URL || "";
+
+    if (redisUrl) {
+      // Production mode: enqueue to BullMQ → workers handle it
+      try {
+        const { addFullPipelineJob } = await import("../../../../../src/lib/scheduler");
+        const bullJobId = await addFullPipelineJob({
+          nicheId,
+          nicheDbId: niche.id,
+          channelId: channel.id,
+          topic: topic || undefined,
+          jobLogId: jobLog.id,
+        });
+
+        if (bullJobId) {
+          await prisma.jobLog.update({
+            where: { id: jobLog.id },
+            data: { status: "queued" },
+          });
+
+          return NextResponse.json({
+            success: true,
+            jobId: jobLog.id,
+            mode: "queued",
+            status: "queued",
+            message: `Pipeline queued (BullMQ job ${bullJobId})`,
+            nicheId,
+            topic: topic || "AI will select",
+          });
+        }
+      } catch (err: any) {
+        console.error("[api/generate] Redis queue failed, falling back to direct:", err.message);
+        // Fall through to direct execution
+      }
+    }
+
+    // Dev mode (or Redis fallback): fire-and-forget direct execution
+    const { runFullPipeline } = await import("../../../../../src/lib/orchestrator");
+
+    // Fire and forget — don't await
+    runFullPipeline(
+      nicheId,
+      niche.id,
+      channel.id,
+      undefined,
+      topic || undefined,
+      voiceProfileId || "raju",
+      language || undefined
+    )
+      .then(async (result) => {
+        await prisma.jobLog.update({
+          where: { id: jobLog.id },
+          data: {
+            status: "completed",
+            result: JSON.stringify({
+              topic: result.topic,
+              nicheId: result.nicheId,
+              uploads: result.uploads.map((u) => ({ platform: u.platform, url: u.url })),
+              scriptDbId: result.scriptDbId,
+              renderedVideoDbId: result.renderedVideoDbId,
+            }),
+            completedAt: new Date(),
+          },
+        });
+      })
+      .catch(async (err) => {
+        await prisma.jobLog.update({
+          where: { id: jobLog.id },
+          data: {
+            status: "failed",
+            errorLog: err.message,
+            completedAt: new Date(),
+          },
+        }).catch(() => {}); // Swallow nested errors
+      });
 
     return NextResponse.json({
       success: true,
       jobId: jobLog.id,
-      message: `Pipeline job queued for niche "${nicheId}"${topic ? ` with topic "${topic}"` : ""}`,
-      note: "Run 'npx ts-node src/lib/orchestrator.ts' from the engine to execute, or start the workers with 'npx ts-node src/workers/index.ts'",
+      mode: "direct",
+      status: "running",
+      message: `Pipeline started directly (no Redis)`,
       nicheId,
       topic: topic || "AI will select",
-      channelId: channel.id,
-      nicheDbId: niche.id,
+      voiceProfileId: voiceProfileId || "raju",
+      language: language || "hinglish",
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -75,7 +162,18 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  // Return recent generation jobs
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Return recent generation jobs scoped to this user's channels
+  const channels = await prisma.channel.findMany({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  const channelIds = channels.map((c) => c.id);
+
   const jobs = await prisma.jobLog.findMany({
     where: { jobType: "full-pipeline" },
     orderBy: { startedAt: "desc" },

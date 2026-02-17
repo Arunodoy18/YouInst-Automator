@@ -34,16 +34,16 @@ export default function HomePage() {
 
         <div className="flex gap-4 justify-center">
           <Link
-            href="/dashboard"
+            href="/login"
             className="px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold transition-colors"
           >
-            Open Dashboard
+            Sign In
           </Link>
           <Link
-            href="/dashboard/generate"
+            href="/register"
             className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg font-semibold transition-colors"
           >
-            Generate Video
+            Create Account
           </Link>
         </div>
 
