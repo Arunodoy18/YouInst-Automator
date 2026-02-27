@@ -46,23 +46,23 @@ const DEFAULT_CONFIG: MotionConfig = {
 
 /** Pan oscillation amplitude in pixels (added to overscan) */
 const PAN_AMPLITUDE: Record<MotionConfig["intensity"], number> = {
-  low: 20,
-  medium: 50,
-  high: 80,
+  low: 15,      // Smoother, more subtle
+  medium: 35,   // Balanced cinema-quality motion
+  high: 60,     // Energetic but controlled
 };
 
 /** Pan oscillation cycle duration in seconds */
 const PAN_PERIOD: Record<MotionConfig["intensity"], number> = {
-  low: 20,
-  medium: 12,
-  high: 7,
+  low: 25,      // Very slow, smooth cinema pan
+  medium: 15,   // Balanced smooth motion
+  high: 9,      // Energetic but smooth
 };
 
 /** Grain strength for the ffmpeg noise filter (alls param) */
 const GRAIN_STRENGTH: Record<MotionConfig["intensity"], number> = {
-  low: 4,
-  medium: 8,
-  high: 14,
+  low: 2,       // Very subtle grain for clean look
+  medium: 5,    // Light grain, cinema quality
+  high: 10,     // Moderate grain, not too heavy
 };
 
 /* ── Public API ────────────────────────────────────────────────────── */
@@ -109,7 +109,7 @@ export async function composeMotion(
     `-t ${targetDurationSec.toFixed(2)}`,
     `-i "${backgroundPath}"`,
     `-filter_script:v "${filterScript}"`,
-    `-c:v libx264 -preset veryfast -crf 30`,
+    `-c:v libx264 -preset slow -crf 18`,  // High quality: CRF 18 + slow preset
     `-r 30`,
     `-an`,
     `-pix_fmt yuv420p`,
@@ -136,7 +136,7 @@ export async function composeMotion(
       `-t ${targetDurationSec.toFixed(2)}`,
       `-i "${backgroundPath}"`,
       `-filter_script:v "${filterScript}"`,
-      `-c:v libx264 -preset veryfast -crf 30`,
+      `-c:v libx264 -preset slow -crf 18`,  // High quality fallback
       `-r 30 -an -pix_fmt yuv420p`,
       `"${outFile}"`,
     ].join(" ");

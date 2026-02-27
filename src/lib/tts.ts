@@ -48,26 +48,84 @@ export interface VoiceProfile {
  * young, expressive Hindi male (Sharman Joshi style), bilingual Hinglish delivery.
  */
 export const VOICE_PROFILES: Record<string, VoiceProfile> = {
-  raju: {
-    id: "raju",
-    label: "Raju Rastogi",
-    description: "Young, expressive Hindi male — Hinglish casual tone like Raju from 3 Idiots",
+  raju_hindi: {
+    id: "raju_hindi",
+    label: "Raju Rastogi (Pure Hindi)",
+    description: "Raju from 3 Idiots - Young, energetic, pure Hindi with cinema accent (Sharman Joshi style)",
     voice: {
       voice: "hi-IN-MadhurNeural", // Young Hindi male, closest to Sharman Joshi
       rate: "+8%",                  // Slightly fast — excited, energetic like Raju
       pitch: "+3Hz",                // Higher pitch — youthful, animated
     },
-    language: "hinglish",
+    language: "hindi",
+    humanize: {
+      breathPauses: true,
+      fillers: true,              // Hindi fillers: "yaar", "bhai", "arey"
+      rateVariation: true,
+    },
+  },
+  raju_english: {
+    id: "raju_english",
+    label: "Raju Rastogi (English)",
+    description: "Raju from 3 Idiots - Young energetic Indian-English accent (Sharman Joshi style)",
+    voice: {
+      voice: "en-IN-PrabhatNeural", // Indian-English male
+      rate: "+8%",                  // Fast, energetic delivery
+      pitch: "+3Hz",                // Youthful pitch
+    },
+    language: "english",
+    humanize: {
+      breathPauses: true,
+      fillers: false,             // Clean English, no Hindi fillers
+      rateVariation: true,
+    },
+  },
+  salman_hindi: {
+    id: "salman_hindi",
+    label: "Salman Khan (Hindi)",
+    description: "Salman Khan cinema style - Deep, authoritative Hindi with Bollywood star accent",
+    voice: {
+      voice: "hi-IN-MadhurNeural",  // Using MadhurNeural with lower settings for depth
+      rate: "+0%",                  // Normal pace — confident, controlled
+      pitch: "-4Hz",                // Lower pitch — authoritative, masculine Salman style
+    },
+    language: "hindi",
+    humanize: {
+      breathPauses: true,
+      fillers: true,              // Hindi cinema style fillers
+      rateVariation: true,
+    },
+  },
+  salman_english: {
+    id: "salman_english",
+    label: "Salman Khan (English)",
+    description: "Salman Khan cinema style - Deep, confident Indian-English with Bollywood star accent",
+    voice: {
+      voice: "en-IN-PrabhatNeural", // Indian-English male
+      rate: "+2%",                  // Moderate pace — confident delivery
+      pitch: "-2Hz",                // Lower pitch — authoritative
+    },
+    language: "english",
+    humanize: {
+      breathPauses: true,
+      fillers: false,             // Clean English, no Hindi fillers
+      rateVariation: true,
+    },
+  },
+  raju: {
+    id: "raju",
+    label: "Raju Rastogi (Legacy)",
+    description: "[DEPRECATED] Use raju_hindi or raju_english instead",
+    voice: {
+      voice: "hi-IN-MadhurNeural",
+      rate: "+8%",
+      pitch: "+3Hz",
+    },
+    language: "hindi",
     humanize: {
       breathPauses: true,
       fillers: true,
       rateVariation: true,
-    },
-    // ElevenLabs voice cloning for authentic Raju voice
-    // Set ELEVENLABS_API_KEY in .env to enable
-    elevenlabs: {
-      voiceId: "ErXwobaYiN019PkySvjV", // Antoni - smooth, engaging, professional voice
-      modelId: "eleven_multilingual_v2",
     },
   },
   default: {

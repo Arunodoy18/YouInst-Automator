@@ -20,7 +20,16 @@ export const maxDuration = 300; // 5 min max for direct execution mode
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { nicheId, topic, voiceProfileId, language } = body;
+    const { 
+      nicheId, 
+      topic, 
+      voiceProfileId, 
+      language, 
+      visualPreset, 
+      hdQuality, 
+      psychologyMode, 
+      retentionLevel 
+    } = body;
 
     if (!nicheId) {
       return NextResponse.json({ error: "nicheId is required" }, { status: 400 });
@@ -62,8 +71,12 @@ export async function POST(req: NextRequest) {
           topic,
           channelId: channel.id,
           nicheDbId: niche.id,
-          voiceProfileId: voiceProfileId || "raju",
-          language: language || "hinglish",
+          voiceProfileId: voiceProfileId || "raju_hindi",
+          language: language || "hindi",
+          visualPreset: visualPreset || "auto",
+          hdQuality: hdQuality !== false,
+          psychologyMode: psychologyMode || "aggressive",
+          retentionLevel: retentionLevel || "enhanced",
         }),
       },
     });
@@ -81,6 +94,12 @@ export async function POST(req: NextRequest) {
           channelId: channel.id,
           topic: topic || undefined,
           jobLogId: jobLog.id,
+          voiceProfileId: voiceProfileId || "raju_hindi",
+          language: language || "hindi",
+          visualPreset: visualPreset || undefined,
+          hdQuality: hdQuality !== false,
+          psychologyMode: psychologyMode || undefined,
+          retentionLevel: retentionLevel || undefined,
         });
 
         if (bullJobId) {
@@ -115,8 +134,14 @@ export async function POST(req: NextRequest) {
       channel.id,
       undefined,
       topic || undefined,
-      voiceProfileId || "raju",
-      language || undefined
+      voiceProfileId || "raju_hindi",
+      language || undefined,
+      {
+        visualPreset: visualPreset || undefined,
+        hdQuality: hdQuality !== false,
+        psychologyMode: psychologyMode || undefined,
+        retentionLevel: retentionLevel || undefined,
+      }
     )
       .then(async (result) => {
         await prisma.jobLog.update({
@@ -153,8 +178,10 @@ export async function POST(req: NextRequest) {
       message: `Pipeline started directly (no Redis)`,
       nicheId,
       topic: topic || "AI will select",
-      voiceProfileId: voiceProfileId || "raju",
-      language: language || "hinglish",
+      voiceProfileId: voiceProfileId || "raju_hindi",
+      language: language || "hindi",
+      visualPreset: visualPreset || "auto",
+      hdQuality: hdQuality !== false,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

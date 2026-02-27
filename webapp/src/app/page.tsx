@@ -16,10 +16,10 @@ export default function HomePage() {
         <div className="grid grid-cols-3 gap-4 text-sm">
           {[
             { label: "AI Scripts", desc: "Groq LLM-powered" },
-            { label: "Auto Render", desc: "Remotion + ffmpeg" },
+            { label: "Cinema HD", desc: "CRF 18 + smooth motion" },
+            { label: "Bollywood Voices", desc: "Raju & Salman cinema TTS" },
+            { label: "Motion Graphics", desc: "6 futuristic presets" },
             { label: "Multi-Platform", desc: "YouTube + Instagram" },
-            { label: "Trend Scanner", desc: "Real-time discovery" },
-            { label: "Smart Scheduler", desc: "BullMQ + cron" },
             { label: "Self-Learning", desc: "Analytics feedback" },
           ].map((f) => (
             <div
@@ -48,7 +48,7 @@ export default function HomePage() {
         </div>
 
         <p className="text-zinc-600 text-xs">
-          7 niches · Psychological triggers · Dual-platform SEO · Automated pipeline
+          7 niches · Cinema-quality Bollywood voices · 6 motion graphic presets · HD rendering · Dual-platform SEO
         </p>
       </div>
     </div>

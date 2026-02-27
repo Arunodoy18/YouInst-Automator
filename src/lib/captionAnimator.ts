@@ -160,7 +160,7 @@ export async function renderWithCaptions(
     ...inputs,
     `-filter_complex_script "${filterPath}"`,
     mappings,
-    `-c:v libx264 -preset medium -crf 28 -maxrate 8M -bufsize 16M`,
+    `-c:v libx264 -preset slow -crf 18 -maxrate 12M -bufsize 24M`,  // Cinema-quality HD
     `-c:a aac -b:a 128k`,
     `-r 30`,
     `-shortest`,

@@ -123,6 +123,12 @@ export interface FullPipelinePayload {
   channelId: string;
   topic?: string;
   jobLogId: string;
+  voiceProfileId?: string;
+  language?: string;
+  visualPreset?: string;
+  hdQuality?: boolean;
+  psychologyMode?: string;
+  retentionLevel?: string;
 }
 
 export interface TrendScanPayload {

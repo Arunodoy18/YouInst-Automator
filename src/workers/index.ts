@@ -49,12 +49,16 @@ const connection = getRedisConnection();
 const fullPipelineWorker = new Worker<FullPipelinePayload>(
   QUEUE_NAMES.FULL_PIPELINE,
   async (job: Job<FullPipelinePayload>) => {
-    const { nicheId, nicheDbId, channelId, topic, jobLogId } = job.data;
+    const { nicheId, nicheDbId, channelId, topic, jobLogId, voiceProfileId, language, visualPreset, hdQuality, psychologyMode, retentionLevel } = job.data;
 
-    logger.info(`Full pipeline worker started: niche=${nicheId}, topic=${topic || "auto"}`);
+    logger.info(`Full pipeline worker started: niche=${nicheId}, topic=${topic || "auto"}, voice=${voiceProfileId || "default"}, preset=${visualPreset || "auto"}`);
 
     try {
-      const result = await runFullPipeline(nicheId, nicheDbId, channelId, undefined, topic);
+      const result = await runFullPipeline(
+        nicheId, nicheDbId, channelId, undefined, topic,
+        voiceProfileId, language,
+        { visualPreset, hdQuality, psychologyMode: psychologyMode as any, retentionLevel: retentionLevel as any }
+      );
 
       // Update the API-level job log
       await prisma.jobLog.update({

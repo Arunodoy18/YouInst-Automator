@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Zap, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw, Mic, Globe, Brain, Gauge } from "lucide-react";
+import { Zap, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw, Mic, Globe, Brain, Gauge, Film, Sparkles } from "lucide-react";
 
 const NICHES = [
   { id: "tech", label: "Tech" },
@@ -14,17 +14,31 @@ const NICHES = [
 ];
 
 const VOICE_PROFILES = [
-  { id: "raju", label: "Raju Rastogi", desc: "Young Hindi male — Hinglish casual (3 Idiots vibe)" },
-  { id: "default", label: "Default (English)", desc: "Warm Indian-English male — professional" },
-  { id: "madhur", label: "Madhur (Hindi)", desc: "Energetic Hindi male — casual" },
-  { id: "swara", label: "Swara (Female)", desc: "Hindi female — authoritative, clear" },
-  { id: "neerja", label: "Neerja (English F)", desc: "Indian-English female — warm" },
+  { id: "raju_hindi", label: "🎬 Raju (Hindi)", desc: "Cinema-quality — Pure Hindi, energetic youth", category: "bollywood" },
+  { id: "raju_english", label: "🎬 Raju (English)", desc: "Cinema-quality — Pure English, energetic youth", category: "bollywood" },
+  { id: "salman_hindi", label: "🎬 Salman Khan (Hindi)", desc: "Cinema-quality — Pure Hindi, authoritative", category: "bollywood" },
+  { id: "salman_english", label: "🎬 Salman Khan (English)", desc: "Cinema-quality — Pure English, authoritative", category: "bollywood" },
+  { id: "raju", label: "Raju Rastogi", desc: "Young Hindi male — Hinglish casual (3 Idiots vibe)", category: "standard" },
+  { id: "default", label: "Default (English)", desc: "Warm Indian-English male — professional", category: "standard" },
+  { id: "madhur", label: "Madhur (Hindi)", desc: "Energetic Hindi male — casual", category: "standard" },
+  { id: "swara", label: "Swara (Female)", desc: "Hindi female — authoritative, clear", category: "standard" },
+  { id: "neerja", label: "Neerja (English F)", desc: "Indian-English female — warm", category: "standard" },
 ];
 
 const LANGUAGES = [
+  { id: "hindi", label: "Pure Hindi", desc: "100% Hindi — cinema authentic" },
+  { id: "english", label: "Pure English", desc: "100% English — cinema authentic" },
   { id: "hinglish", label: "Hinglish", desc: "Hindi + English mix (natural)" },
-  { id: "english", label: "English", desc: "Full English" },
-  { id: "hindi", label: "Hindi", desc: "Romanized Hindi" },
+];
+
+const VISUAL_PRESETS = [
+  { id: "ultra_futuristic", label: "Ultra Futuristic", desc: "High-speed zoom, intense glitch, chromatic", icon: "🚀" },
+  { id: "matrix", label: "Matrix Code", desc: "Digital rain, green monochrome", icon: "💻" },
+  { id: "neon_cyberpunk", label: "Neon Cyberpunk", desc: "RGB split, neon glow, fast pan", icon: "🌃" },
+  { id: "hologram", label: "Hologram", desc: "Scan lines, flickering, transparency", icon: "👁️" },
+  { id: "digital_chaos", label: "Digital Chaos", desc: "Strobe, data mosaic, color shift", icon: "⚡" },
+  { id: "tron", label: "Tron Grid", desc: "Electric blue grid, slow zoom", icon: "🎮" },
+  { id: "auto", label: "Auto (Smart Select)", desc: "AI picks best for your content", icon: "🎯" },
 ];
 
 const PSYCHOLOGY_MODES = [
@@ -70,8 +84,10 @@ interface JobStatus {
 export default function GeneratePage() {
   const [niche, setNiche] = useState("ai");
   const [topic, setTopic] = useState("");
-  const [voiceProfile, setVoiceProfile] = useState("raju");
-  const [language, setLanguage] = useState("hinglish");
+  const [voiceProfile, setVoiceProfile] = useState("raju_hindi");
+  const [language, setLanguage] = useState("hindi");
+  const [visualPreset, setVisualPreset] = useState("auto");
+  const [hdQuality, setHdQuality] = useState(true);
   const [psychologyMode, setPsychologyMode] = useState("aggressive");
   const [retentionLevel, setRetentionLevel] = useState("enhanced");
   const [status, setStatus] = useState<"idle" | "running" | "success" | "error">("idle");
@@ -127,6 +143,8 @@ export default function GeneratePage() {
           topic: topic.trim() || undefined,
           voiceProfileId: voiceProfile,
           language,
+          visualPreset: visualPreset === "auto" ? undefined : visualPreset,
+          hdQuality,
           psychologyMode,
           retentionLevel,
         }),
@@ -189,28 +207,129 @@ export default function GeneratePage() {
           <label className="flex items-center gap-2 text-sm font-medium mb-2">
             <Mic className="w-4 h-4 text-cyan-400" /> Voice Profile
           </label>
-          <div className="grid grid-cols-3 gap-2">
-            {VOICE_PROFILES.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => {
-                  setVoiceProfile(v.id);
-                  // Auto-set language from voice
-                  if (v.id === "raju" || v.id === "swara") setLanguage("hinglish");
-                  else if (v.id === "madhur") setLanguage("hindi");
-                  else setLanguage("english");
-                }}
-                disabled={status === "running"}
-                className={`px-3 py-2 rounded-lg text-left transition-colors ${
-                  voiceProfile === v.id
-                    ? "bg-cyan-600/30 border border-cyan-500 text-cyan-300"
-                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-transparent"
-                } disabled:opacity-50`}
-              >
-                <div className="text-sm font-medium">{v.label}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">{v.desc}</div>
-              </button>
-            ))}
+          
+          {/* Cinema-Quality Bollywood Voices */}
+          <div className="mb-3">
+            <p className="text-xs text-cyan-400 font-semibold mb-2">🎬 CINEMA-QUALITY BOLLYWOOD</p>
+            <div className="grid grid-cols-2 gap-2">
+              {VOICE_PROFILES.filter(v => v.category === "bollywood").map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => {
+                    setVoiceProfile(v.id);
+                    // Auto-set pure language from cinema voice
+                    if (v.id.includes("_hindi")) setLanguage("hindi");
+                    else if (v.id.includes("_english")) setLanguage("english");
+                  }}
+                  disabled={status === "running"}
+                  className={`px-3 py-2 rounded-lg text-left transition-colors ${
+                    voiceProfile === v.id
+                      ? "bg-gradient-to-r from-cyan-600/30 to-violet-600/30 border border-cyan-500 text-cyan-300"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-transparent"
+                  } disabled:opacity-50`}
+                >
+                  <div className="text-sm font-medium">{v.label}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{v.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Standard Voices */}
+          <div>
+            <p className="text-xs text-zinc-500 font-semibold mb-2">STANDARD VOICES</p>
+            <div className="grid grid-cols-3 gap-2">
+              {VOICE_PROFILES.filter(v => v.category === "standard").map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => {
+                    setVoiceProfile(v.id);
+                    // Auto-set language from voice
+                    if (v.id === "raju" || v.id === "swara") setLanguage("hinglish");
+                    else if (v.id === "madhur") setLanguage("hindi");
+                    else setLanguage("english");
+                  }}
+                  disabled={status === "running"}
+                  className={`px-3 py-2 rounded-lg text-left transition-colors ${
+                    voiceProfile === v.id
+                      ? "bg-cyan-600/30 border border-cyan-500 text-cyan-300"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-transparent"
+                  } disabled:opacity-50`}
+                >
+                  <div className="text-sm font-medium">{v.label}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{v.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Preset + HD Quality — 2 column row */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Visual Preset */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <Film className="w-4 h-4 text-violet-400" /> Motion Graphics
+            </label>
+            <div className="space-y-1.5">
+              {VISUAL_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setVisualPreset(p.id)}
+                  disabled={status === "running"}
+                  className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${
+                    visualPreset === p.id
+                      ? "bg-violet-600/30 border border-violet-500 text-violet-300"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-transparent"
+                  } disabled:opacity-50`}
+                >
+                  <span className="mr-1.5">{p.icon}</span>
+                  <span className="font-medium">{p.label}</span>
+                  <span className="text-xs text-zinc-500 ml-1">— {p.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* HD Quality + Info */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <Sparkles className="w-4 h-4 text-yellow-400" /> Quality Settings
+            </label>
+            <div className="space-y-3">
+              {/* HD Toggle */}
+              <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-zinc-200">Cinema HD Quality</span>
+                  <button
+                    onClick={() => setHdQuality(!hdQuality)}
+                    disabled={status === "running"}
+                    title={hdQuality ? "Switch to fast quality" : "Switch to cinema HD quality"}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                      hdQuality ? "bg-violet-600" : "bg-zinc-700"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        hdQuality ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-500">
+                  {hdQuality 
+                    ? "✅ CRF 18, slow preset, 12M bitrate — cinema quality" 
+                    : "⚡ CRF 28, fast preset — quicker render"}
+                </p>
+              </div>
+
+              {/* Quality Info */}
+              <div className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-500 space-y-1">
+                <p><strong className="text-zinc-400">Smooth Motion:</strong> Reduced pan, slower periods, light grain</p>
+                <p><strong className="text-zinc-400">Resolution:</strong> 1080×1920 (9:16 vertical)</p>
+                <p><strong className="text-zinc-400">Duration:</strong> 30-40 seconds optimized</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -310,6 +429,8 @@ export default function GeneratePage() {
           {NICHES.find(n => n.id === niche)?.label} niche ·{" "}
           {VOICE_PROFILES.find(v => v.id === voiceProfile)?.label} voice ·{" "}
           {LANGUAGES.find(l => l.id === language)?.label} ·{" "}
+          {VISUAL_PRESETS.find(p => p.id === visualPreset)?.label} graphics ·{" "}
+          {hdQuality ? "Cinema HD" : "Fast"} quality ·{" "}
           {PSYCHOLOGY_MODES.find(m => m.id === psychologyMode)?.label} mode ·{" "}
           {RETENTION_LEVELS.find(r => r.id === retentionLevel)?.label} retention ·{" "}
           30-40s duration

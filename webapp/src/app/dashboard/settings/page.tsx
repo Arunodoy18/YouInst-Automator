@@ -6,8 +6,7 @@ export const dynamic = "force-dynamic";
 export default function SettingsPage() {
   const envVars = [
     { key: "GROQ_API_KEY", desc: "Groq AI for script generation (required)", category: "AI" },
-    { key: "YOUTUBE_CLIENT_ID", desc: "YouTube OAuth2 client ID", category: "YouTube" },
-    { key: "YOUTUBE_CLIENT_SECRET", desc: "YouTube OAuth2 client secret", category: "YouTube" },
+    { key: "ELEVENLABS_API_KEY", desc: "ElevenLabs premium TTS (optional, Edge TTS fallback)", category: "AI" },
     { key: "YOUTUBE_REFRESH_TOKEN", desc: "YouTube OAuth2 refresh token", category: "YouTube" },
     { key: "YOUTUBE_API_KEY", desc: "YouTube Data API key (for trend discovery)", category: "YouTube" },
     { key: "PEXELS_API_KEY", desc: "Pexels API for stock video backgrounds", category: "Media" },
@@ -68,9 +67,11 @@ export default function SettingsPage() {
         <div className="grid grid-cols-2 gap-4 text-sm text-zinc-400">
           {[
             { label: "AI Engine", value: "Groq (llama-3.3-70b-versatile)" },
-            { label: "TTS", value: "Edge TTS (en-US-ChristopherNeural)" },
+            { label: "TTS", value: "Edge TTS (Bollywood cinema profiles)" },
             { label: "Transcription", value: "OpenAI Whisper (base model)" },
+            { label: "Video Quality", value: "Cinema HD (CRF 18, slow preset)" },
             { label: "Video Rendering", value: "Remotion 4.0 + ffmpeg" },
+            { label: "Motion Graphics", value: "6 custom futuristic presets" },
             { label: "Queue System", value: "BullMQ + Redis" },
             { label: "Database", value: "SQLite (Prisma 7.x)" },
             { label: "Dashboard", value: "Next.js 14 + Tailwind CSS" },
@@ -79,6 +80,53 @@ export default function SettingsPage() {
             <div key={item.label} className="flex justify-between p-2">
               <span className="text-zinc-500">{item.label}</span>
               <span>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cinema Quality Voice Profiles */}
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+        <h3 className="font-semibold mb-3">🎬 Cinema-Quality Voice Profiles</h3>
+        <div className="space-y-3 text-sm">
+          {[
+            { name: "Raju (Hindi)", voice: "hi-IN-MadhurNeural", style: "+8% rate, +3Hz pitch", desc: "Energetic youth — pure Hindi, 3 Idiots cinema vibe" },
+            { name: "Raju (English)", voice: "en-IN-PrabhatNeural", style: "+8% rate, +3Hz pitch", desc: "Energetic youth — pure English with authentic Indian accent" },
+            { name: "Salman Khan (Hindi)", voice: "hi-IN-MadhurNeural", style: "+0% rate, -4Hz pitch", desc: "Deep authoritative — pure Hindi, Dabangg style" },
+            { name: "Salman Khan (English)", voice: "en-IN-PrabhatNeural", style: "+2% rate, -2Hz pitch", desc: "Deep authoritative — pure English, Bollywood legend" },
+          ].map((v) => (
+            <div key={v.name} className="p-3 rounded-lg bg-zinc-800/50 flex justify-between items-start">
+              <div>
+                <p className="text-zinc-200 font-medium">{v.name}</p>
+                <p className="text-zinc-500 text-xs mt-0.5">{v.desc}</p>
+              </div>
+              <div className="text-right">
+                <code className="text-xs text-cyan-400">{v.voice}</code>
+                <p className="text-xs text-zinc-600 mt-0.5">{v.style}</p>
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-zinc-600 mt-2">
+            ⚠️ Language purity enforced — Hindi voices use 100% Hindi, English voices use 100% English. No mixing.
+          </p>
+        </div>
+      </div>
+
+      {/* Motion Graphics Presets */}
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+        <h3 className="font-semibold mb-3">🚀 Motion Graphics Presets</h3>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {[
+            { name: "Ultra Futuristic", desc: "High-speed zoom, intense glitch, chromatic aberration" },
+            { name: "Matrix Code", desc: "Digital rain overlay, green monochrome aesthetics" },
+            { name: "Neon Cyberpunk", desc: "RGB split, neon glow, fast pan movement" },
+            { name: "Hologram", desc: "Scan lines, flickering, transparency effects" },
+            { name: "Digital Chaos", desc: "Strobe lighting, data mosaic, color shift" },
+            { name: "Tron Grid", desc: "Electric blue grid, slow zoom, clean lines" },
+          ].map((p) => (
+            <div key={p.name} className="p-3 rounded-lg bg-zinc-800/50">
+              <p className="text-zinc-200 font-medium">{p.name}</p>
+              <p className="text-zinc-500 text-xs mt-0.5">{p.desc}</p>
             </div>
           ))}
         </div>

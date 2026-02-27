@@ -50,6 +50,7 @@ import { selectVisualStrategy } from "./visualSelector";
 import { pickBackground } from "./backgroundEngine";
 import { composeMotion } from "./motionComposer";
 import { renderWithCaptions } from "./captionAnimator";
+import { applyCustomPreset } from "./customVisualPresets";
 import { uploadToYouTube } from "./youtube";
 import { uploadToTempHost } from "./tempHosting";
 import { uploadToInstagram, isInstagramConfigured } from "./instagram";
@@ -81,6 +82,15 @@ export interface PipelineResult {
   nicheId: string;
 }
 
+// ── Pipeline Options ─────────────────────────────────────────────
+
+export interface PipelineOptions {
+  visualPreset?: string;
+  hdQuality?: boolean;
+  psychologyMode?: PsychologyMode;
+  retentionLevel?: RetentionLevel;
+}
+
 // ── Full Pipeline ────────────────────────────────────────────────────
 
 /**
@@ -93,6 +103,7 @@ export interface PipelineResult {
  * @param topicOverride - Optional: skip topic generation and use this topic
  * @param voiceProfileId - Optional: voice profile ("raju", "default", "madhur", "swara", "neerja")
  * @param languageOverride - Optional: script language ("english", "hinglish", "hindi")
+ * @param options - Optional: visual preset, quality, psychology/retention overrides
  */
 export async function runFullPipeline(
   nicheId: string,
@@ -101,13 +112,18 @@ export async function runFullPipeline(
   scheduleId?: string,
   topicOverride?: string,
   voiceProfileId?: string,
-  languageOverride?: string
+  languageOverride?: string,
+  options?: PipelineOptions
 ): Promise<PipelineResult> {
   const jobLogId = await logJob(scheduleId || null, "full-pipeline", "running", {
     nicheId,
     channelId,
     voiceProfileId: voiceProfileId || "raju",
     language: languageOverride || "hinglish",
+    visualPreset: options?.visualPreset || "auto",
+    hdQuality: options?.hdQuality !== false,
+    psychologyMode: options?.psychologyMode,
+    retentionLevel: options?.retentionLevel,
   });
 
   const runId = `${nicheId}-${Date.now()}`;
@@ -147,14 +163,14 @@ export async function runFullPipeline(
       where: { channelId },
     });
     const intelligence: IntelligenceConfig = {
-      psychologyMode: (intelConfig?.psychologyMode as PsychologyMode) ?? "aggressive",
-      retentionLevel: (intelConfig?.retentionLevel as RetentionLevel) ?? "enhanced",
+      psychologyMode: (options?.psychologyMode || intelConfig?.psychologyMode as PsychologyMode) ?? "aggressive",
+      retentionLevel: (options?.retentionLevel || intelConfig?.retentionLevel as RetentionLevel) ?? "enhanced",
       language: resolvedLanguage,
     };
     logger.info(`Intelligence: mode=${intelligence.psychologyMode}, retention=${intelligence.retentionLevel}, rotation=${intelConfig?.nicheRotationEnabled ?? false}`);
 
-    // Auto-tune retention level from AI analysis when confidence is medium+
-    if (perfAnalysis && perfAnalysis.confidenceLevel !== "low") {
+    // Auto-tune retention level from AI analysis when confidence is medium+ (unless explicitly overridden)
+    if (!options?.retentionLevel && perfAnalysis && perfAnalysis.confidenceLevel !== "low") {
       const recommended = perfAnalysis.scriptPacingAdjustment.targetRetentionLevel;
       if (recommended !== intelligence.retentionLevel) {
         logger.info(`AI auto-tune: retention ${intelligence.retentionLevel} → ${recommended} (${perfAnalysis.scriptPacingAdjustment.recommendation})`);
@@ -313,11 +329,30 @@ export async function runFullPipeline(
     logger.info(`Created ${captions.length} timed captions`);
 
     logger.info("  [8c] Selecting visual strategy + fetching background…");
-    const visualStrategy = selectVisualStrategy(
+    let visualStrategy = selectVisualStrategy(
       activeNicheId,
       topic,
       intelligence.psychologyMode
     );
+    
+    // Apply custom visual preset if specified
+    if (options?.visualPreset && options.visualPreset !== "auto") {
+      try {
+        const customPreset = applyCustomPreset(options.visualPreset as any);
+        visualStrategy = {
+          ...visualStrategy,
+          ...customPreset.visual,
+        };
+        logger.info(`  → Applied custom preset: ${options.visualPreset}`);
+      } catch (err: any) {
+        logger.warn(`  → Custom preset "${options.visualPreset}" not found, using auto-selected strategy`);
+      }
+    }
+    
+    // Log quality settings
+    const qualityMode = options?.hdQuality !== false ? "Cinema HD (CRF 18, slow)" : "Standard (CRF 28, fast)";
+    logger.info(`  Quality: ${qualityMode}`);
+    
     logger.info(
       `  Visual: mode=${visualStrategy.mode}, intensity=${visualStrategy.motionIntensity}, accent=${visualStrategy.accentColor}`
     );

@@ -8,10 +8,19 @@ dist/
 
 # Generated media & database
 output/
+input/
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
+
+# Large media files (safety net)
+*.mp4
+*.mov
+*.avi
+*.mkv
+# Allow background assets to be tracked
+!assets/backgrounds/**/*.mp4
 
 # Environment (secrets)
 .env

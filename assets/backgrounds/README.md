@@ -5,13 +5,14 @@ The **Background Engine** will randomly pick one at render time.
 
 ## Folder Mapping
 
-| Folder              | Niche Match                | Mood / Style                                 |
-| ------------------- | -------------------------- | -------------------------------------------- |
-| `endless_runner/`   | motivation, ai-motivation  | Aerial running tracks, cinematic movement    |
-| `futuristic/`       | tech, ai                   | Neon grids, abstract tech, dark sci-fi loops |
-| `finance/`          | finance-tech, money        | Stock tickers, dark graphs, gold particles   |
-| `productivity/`     | productivity               | Minimal desks, gradient flows, calm nature   |
-| `high_energy/`      | *keyword override*         | Fast motion, intense abstract, particle rush |
+| Folder              | Niche Match                | Mood / Style                                 | Current Assets |
+| ------------------- | -------------------------- | -------------------------------------------- | -------------- |
+| `endless_runner/`   | motivation, ai-motivation  | Aerial running tracks, cinematic movement    | ✅ Subway Surfers gameplay (44 MB) |
+| `temple_run/`       | tech, ai                   | Ancient temple corridors, adventure gameplay | ✅ Temple Run gameplay (40 MB) |
+| `futuristic/`       | tech, ai                   | Neon grids, abstract tech, dark sci-fi loops | ⚠️ Empty (Pexels fallback) |
+| `finance/`          | finance-tech, money        | Stock tickers, dark graphs, gold particles   | ⚠️ Empty (Pexels fallback) |
+| `productivity/`     | productivity               | Minimal desks, gradient flows, calm nature   | ⚠️ Empty (Pexels fallback) |
+| `high_energy/`      | *keyword override*         | Fast motion, intense abstract, particle rush | ✅ Both gameplay videos (84 MB) |
 
 ## Guidelines
 

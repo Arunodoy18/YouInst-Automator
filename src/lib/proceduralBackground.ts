@@ -112,7 +112,7 @@ export async function generateProceduralBackground(
     `-i "color=c=black:s=1080x1920:r=${fps}:d=${cfg.loopDurationSec}"`,
     `-filter_complex_script "${filterScript}"`,
     `-map "[final]"`,
-    `-c:v libx264 -preset fast -crf 23`,
+    `-c:v libx264 -preset slow -crf 18`,  // High quality HD
     `-t ${cfg.loopDurationSec}`,
     `-r ${fps}`,
     `-an`,
