@@ -1,6 +1,14 @@
 # Dependencies
 node_modules/
 
+# Python virtual environments
+.venv/
+venv/
+xtts-env/
+__pycache__/
+*.pyc
+*.pyo
+
 # Build output
 dist/
 .next/

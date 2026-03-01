@@ -126,8 +126,20 @@ print("OK")
     env[pathKey] = ffmpegDir + path.delimiter + (env[pathKey] || "");
   }
 
+  // Use virtual environment Python if available (Windows: .venv\Scripts\python.exe, Unix: .venv/bin/python)
+  // Use process.cwd() to get project root, not __dirname (which points to dist/lib after compilation)
+  const projectRoot = process.cwd();
+  const venvPythonWin = path.resolve(projectRoot, ".venv/Scripts/python.exe");
+  const venvPythonUnix = path.resolve(projectRoot, ".venv/bin/python");
+  let pythonCmd = "python";
+  if (fs.existsSync(venvPythonWin)) {
+    pythonCmd = `"${venvPythonWin}"`;
+  } else if (fs.existsSync(venvPythonUnix)) {
+    pythonCmd = `"${venvPythonUnix}"`;
+  }
+
   try {
-    await execAsync(`python "${scriptFile}"`, {
+    await execAsync(`${pythonCmd} "${scriptFile}"`, {
       maxBuffer: 50 * 1024 * 1024,
       timeout: 600000, // 10 minutes — first run downloads ~139MB model
       env,

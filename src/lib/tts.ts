@@ -474,39 +474,20 @@ export async function generateVoice(
     }
   }
 
-  // ── Edge TTS with SSML for expressive prosody ──────────────────────
-  const ssmlContent = buildSSML(processedText, cfg.voice, cfg.rate, cfg.pitch);
-
-  // Write SSML to a temp file — avoids all shell-escaping complexity
-  const ssmlFile = path.resolve(outputDir, "_tts_ssml.xml");
-  fs.writeFileSync(ssmlFile, ssmlContent, "utf-8");
-
+  // ── Edge TTS with plain text (SSML disabled due to parsing issues) ──
+  console.log(`  → Running Edge TTS (${cfg.voice}, plain text mode, profile=${profile.id})…`);
+  
+  const safeText = processedText.replace(/"/g, '\\"');
   const command = [
     `edge-tts`,
-    `--file "${ssmlFile}"`,
+    `--text "${safeText}"`,
     `--voice "${cfg.voice}"`,
+    `--rate="${cfg.rate}"`,
+    `--pitch="${cfg.pitch}"`,
     `--write-media "${outFile}"`,
   ].join(" ");
-
-  console.log(`  → Running Edge TTS SSML (${cfg.voice}, prosody-varied, profile=${profile.id})…`);
-  try {
-    await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
-  } catch {
-    // SSML may fail on some edge-tts versions — fall back to plain text
-    console.warn(`  ⚠  SSML TTS failed, falling back to plain text…`);
-    const safeText = processedText.replace(/"/g, '\\"');
-    const fallbackCmd = [
-      `edge-tts`,
-      `--text "${safeText}"`,
-      `--voice "${cfg.voice}"`,
-      `--rate="${cfg.rate}"`,
-      `--pitch="${cfg.pitch}"`,
-      `--write-media "${outFile}"`,
-    ].join(" ");
-    await execAsync(fallbackCmd, { maxBuffer: 10 * 1024 * 1024 });
-  } finally {
-    if (fs.existsSync(ssmlFile)) fs.unlinkSync(ssmlFile);
-  }
+  
+  await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
 
   if (!fs.existsSync(outFile)) {
     throw new Error("TTS failed — voice.mp3 was not created.");

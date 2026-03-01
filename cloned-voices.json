@@ -16,5 +16,45 @@
     },
     "_referenceAudio": "output/voice-training-raju_cloned-1772346551750/training_seg_0.wav",
     "_note": "True voice cloning blocked (ElevenLabs free tier). SSML prosody variation active in Edge TTS fallback."
+  },
+  "rachel_elevenlabs": {
+    "id": "rachel_elevenlabs",
+    "label": "Rachel_elevenlabs (ElevenLabs)",
+    "description": "ElevenLabs voice: 21m00Tcm4TlvDq8ikWAM",
+    "language": "english",
+    "humanize": {
+      "breathPauses": true,
+      "fillers": false,
+      "rateVariation": true
+    },
+    "elevenlabs": {
+      "voiceId": "21m00Tcm4TlvDq8ikWAM",
+      "modelId": "eleven_multilingual_v2"
+    },
+    "voice": {
+      "voice": "en-IN-PrabhatNeural",
+      "rate": "+5%",
+      "pitch": "+1Hz"
+    }
+  },
+  "antoni_elevenlabs": {
+    "id": "antoni_elevenlabs",
+    "label": "Antoni_elevenlabs (ElevenLabs)",
+    "description": "ElevenLabs voice: ErXwobaYiN019PkySvjV",
+    "language": "english",
+    "humanize": {
+      "breathPauses": true,
+      "fillers": false,
+      "rateVariation": true
+    },
+    "elevenlabs": {
+      "voiceId": "ErXwobaYiN019PkySvjV",
+      "modelId": "eleven_multilingual_v2"
+    },
+    "voice": {
+      "voice": "en-IN-PrabhatNeural",
+      "rate": "+5%",
+      "pitch": "+1Hz"
+    }
   }
 }
