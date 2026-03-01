@@ -79,12 +79,14 @@ async function cmdGenerate(args: string[]) {
   const topicOverride = args[1];
   const voiceProfileId = args[2] || "raju";
   const languageOverride = args[3] || undefined;
+  // 5th positional arg OR --preset=<name> flag
+  const presetArg = args[4] || args.find(a => a.startsWith("--preset="))?.split("=")[1] || undefined;
 
   if (!nicheId || !NICHE_IDS.includes(nicheId)) {
     console.error(`\n  Usage: generate <nicheId> [topic] [voiceProfile] [language]`);
     console.error(`  Available niches: ${NICHE_IDS.join(", ")}`);
-    console.error(`  Voice profiles: raju (default), default, madhur, swara, neerja`);
-    console.error(`  Languages: hinglish (default), english, hindi\n`);
+    console.error(`  Voice profiles: raju_hindi, raju_english, salman_hindi, salman_english, raju, default, madhur, swara, neerja`);
+    console.error(`  Languages: hindi, english, hinglish\n`);
     process.exit(1);
   }
 
@@ -112,7 +114,7 @@ async function cmdGenerate(args: string[]) {
     });
   }
 
-  console.log(`\n  YouInst AI \u2014 Full Pipeline`);
+  console.log(`\n  YouInst AI — Full Pipeline`);
   console.log(`  ${"=".repeat(40)}`);
   console.log(`  Niche   : ${nicheId} (${getNicheConfig(nicheId).label})`);
   console.log(`  Channel : ${channel.name}`);
@@ -120,6 +122,7 @@ async function cmdGenerate(args: string[]) {
   console.log(`  Language: ${languageOverride || "auto (from voice profile)"}`);
   console.log(`  Redis   : ${isRedisConfigured() ? "connected" : "disabled (direct mode)"}`);
   if (topicOverride) console.log(`  Topic   : "${topicOverride}"`);
+  if (presetArg) console.log(`  Preset  : ${presetArg}`);
   console.log();
 
   const startTime = Date.now();
@@ -131,7 +134,8 @@ async function cmdGenerate(args: string[]) {
     undefined,
     topicOverride,
     voiceProfileId,
-    languageOverride
+    languageOverride,
+    { hdQuality: true, visualPreset: presetArg || "auto" }
   );
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);

@@ -13,7 +13,11 @@
     "webapp:build": "cd webapp && npm run build",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "voice:train-raju": "ts-node src/cli/clone-voice.ts train input/Raju.mp4 --name raju_cloned --lang hindi",
+    "voice:list": "ts-node src/cli/clone-voice.ts list",
+    "voice:test-raju": "ts-node src/cli/clone-voice.ts test raju_cloned \"Bhai, aaj main tumhe ek aisi baat bataunga jo tumhari zindagi badal degi!\"",
+    "voice:analyze-raju": "ts-node src/cli/clone-voice.ts analyze input/Raju.mp4"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.36.0",

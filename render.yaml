@@ -2,6 +2,12 @@
 # YouInst AI — Render Blueprint (Production-Ready)
 # https://render.com/docs/blueprint-spec
 #
+# Services:
+#   1. youinst-db       — Managed PostgreSQL (free tier)
+#   2. youinst-redis    — Managed Redis queue
+#   3. youinst-ai       — Next.js webapp (Web Service, Docker)
+#   4. youinst-workers  — BullMQ video pipeline (Background Worker, Docker)
+#
 # Deploy:
 #   1. Push to GitHub
 #   2. Render Dashboard → New Blueprint → Connect repo
@@ -9,8 +15,23 @@
 #   4. Deploy
 # ═══════════════════════════════════════════════════════════════
 
+databases:
+  # ── PostgreSQL (Managed) ─────────────────────────────────────
+  - name: youinst-db
+    plan: starter          # Free 1GB / $7/mo for more storage
+    region: oregon
+    databaseName: youinst
+    user: youinst
+
 services:
-  # ── Main Web Service (Next.js + Engine Pipeline) ─────────────
+  # ── Redis (Managed) ──────────────────────────────────────────
+  - type: redis
+    name: youinst-redis
+    plan: starter          # Free 25MB / paid plans for more
+    region: oregon
+    ipAllowList: []        # Only internal Render services can connect
+
+  # ── Main Web Service (Next.js Dashboard) ─────────────────────
   - type: web
     name: youinst-ai
     runtime: docker
@@ -20,39 +41,54 @@ services:
     # Upgrade to standard for 2GB RAM = faster video renders
     plan: starter
     region: oregon        # Choose: oregon, frankfurt, singapore
-    
+
     # Auto-deploy on git push
     autoDeploy: true
     branch: main
-    
+
     # Health monitoring
     healthCheckPath: /api/health
-    
-    # Persistent disk for SQLite + rendered videos
+
+    # Persistent disk for rendered video output
     disk:
-      name: youinst-data
-      mountPath: /app/data
-      sizeGB: 5           # 1 GB free, then $0.25/GB/mo
-    
+      name: youinst-output
+      mountPath: /app/output
+      sizeGB: 10          # Video output storage ($0.25/GB/mo)
+
     envVars:
       # ── System ──
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        value: file:/app/data/youinst.db
       - key: PORT
         value: 3000
-      
+
+      # ── Database (auto-wired from youinst-db) ──
+      - key: DATABASE_URL
+        fromDatabase:
+          name: youinst-db
+          property: connectionString
+
+      # ── Redis (auto-wired from youinst-redis service) ──
+      - key: REDIS_URL
+        fromService:
+          name: youinst-redis
+          type: redis
+          property: connectionString
+
       # ── Auth (NextAuth.js) ──
       - key: NEXTAUTH_SECRET
         generateValue: true # Auto-generates 64-char random string
       - key: NEXTAUTH_URL
         value: https://youinst-ai.onrender.com  # Update with YOUR service URL
-      
+
       # ── AI (Required) ──
       - key: GROQ_API_KEY
         sync: false        # Enter in dashboard: gsk_...
-      
+
+      # ── Voice (Optional) ──
+      - key: ELEVENLABS_API_KEY
+        sync: false
+
       # ── YouTube Upload (Optional) ──
       - key: YOUTUBE_CLIENT_ID
         sync: false
@@ -60,13 +96,82 @@ services:
         sync: false
       - key: YOUTUBE_REFRESH_TOKEN
         sync: false
-      
+
       # ── Instagram Upload (Optional) ──
       - key: INSTAGRAM_ACCESS_TOKEN
         sync: false
       - key: INSTAGRAM_BUSINESS_ACCOUNT_ID
         sync: false
-      
+
+      # ── Background Media (Optional) ──
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: PIXABAY_API_KEY
+        sync: false
+
+      # ── Stripe (Optional) ──
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+
+  # ── Background Workers (BullMQ Video Pipeline) ───────────────
+  - type: worker
+    name: youinst-workers
+    runtime: docker
+    dockerfilePath: ./Dockerfile.engine
+    dockerContext: .
+    # Use standard+ for RAM-heavy Whisper + Remotion renders
+    # starter = 512MB RAM (may OOM on large renders)
+    # standard = 2GB RAM (recommended)
+    plan: starter
+    region: oregon
+
+    autoDeploy: true
+    branch: main
+
+    envVars:
+      # ── System ──
+      - key: NODE_ENV
+        value: production
+
+      # ── Database (auto-wired from youinst-db) ──
+      - key: DATABASE_URL
+        fromDatabase:
+          name: youinst-db
+          property: connectionString
+
+      # ── Redis (auto-wired from youinst-redis service) ──
+      - key: REDIS_URL
+        fromService:
+          name: youinst-redis
+          type: redis
+          property: connectionString
+
+      # ── AI (Required) ──
+      - key: GROQ_API_KEY
+        sync: false
+
+      # ── Voice (Optional) ──
+      - key: ELEVENLABS_API_KEY
+        sync: false
+
+      # ── YouTube Upload (Optional) ──
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_REFRESH_TOKEN
+        sync: false
+
+      # ── Instagram Upload (Optional) ──
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false
+      - key: INSTAGRAM_BUSINESS_ACCOUNT_ID
+        sync: false
+
       # ── Background Media (Optional) ──
       - key: PEXELS_API_KEY
         sync: false

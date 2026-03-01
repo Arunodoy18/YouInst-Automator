@@ -96,7 +96,23 @@ export default function GeneratePage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [mode, setMode] = useState<string>("");
+  const [clonedVoices, setClonedVoices] = useState<typeof VOICE_PROFILES>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch cloned voices on mount
+  useEffect(() => {
+    fetch("/api/voices")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.clonedVoices?.length > 0) {
+          setClonedVoices(data.clonedVoices);
+        }
+      })
+      .catch(() => {}); // Ignore errors
+  }, []);
+
+  // Merge built-in + cloned voices
+  const allVoices = [...VOICE_PROFILES, ...clonedVoices];
 
   // Poll job status
   const pollJob = useCallback(async (id: string) => {
@@ -239,7 +255,7 @@ export default function GeneratePage() {
           <div>
             <p className="text-xs text-zinc-500 font-semibold mb-2">STANDARD VOICES</p>
             <div className="grid grid-cols-3 gap-2">
-              {VOICE_PROFILES.filter(v => v.category === "standard").map((v) => (
+              {allVoices.filter(v => v.category === "standard").map((v) => (
                 <button
                   key={v.id}
                   onClick={() => {
@@ -262,6 +278,36 @@ export default function GeneratePage() {
               ))}
             </div>
           </div>
+
+          {/* Cloned Voices — only shown when cloned voices exist */}
+          {clonedVoices.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-emerald-400 font-semibold mb-2">🎤 YOUR CLONED VOICES</p>
+              <div className="grid grid-cols-2 gap-2">
+                {clonedVoices.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => {
+                      setVoiceProfile(v.id);
+                      if ((v as any).language) setLanguage((v as any).language);
+                    }}
+                    disabled={status === "running"}
+                    className={`px-3 py-2 rounded-lg text-left transition-colors ${
+                      voiceProfile === v.id
+                        ? "bg-gradient-to-r from-emerald-600/30 to-cyan-600/30 border border-emerald-500 text-emerald-300"
+                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-transparent"
+                    } disabled:opacity-50`}
+                  >
+                    <div className="text-sm font-medium">{v.label}</div>
+                    <div className="text-xs text-zinc-500 mt-0.5">{v.desc}</div>
+                    {(v as any).hasElevenLabs && (
+                      <span className="text-[10px] text-emerald-500 mt-1 inline-block">ElevenLabs Clone</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Visual Preset + HD Quality — 2 column row */}

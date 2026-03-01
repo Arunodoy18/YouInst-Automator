@@ -194,10 +194,49 @@ export const VOICE_PROFILES: Record<string, VoiceProfile> = {
   },
 };
 
-/** Get a voice profile by ID (falls back to "raju" as default) */
+/* ── Dynamic Cloned Voices ────────────────────────────────────────── */
+
+/** Runtime registry: merged built-in + cloned voices */
+const ALL_PROFILES: Record<string, VoiceProfile> = { ...VOICE_PROFILES };
+
+/**
+ * Load cloned voice profiles from cloned-voices.json.
+ * Call this at startup or before voice resolution.
+ * Safe to call multiple times — merges into ALL_PROFILES.
+ */
+export function loadClonedVoices(): void {
+  const clonedPath = path.resolve(__dirname, "../../cloned-voices.json");
+  if (!fs.existsSync(clonedPath)) return;
+
+  try {
+    const cloned: Record<string, VoiceProfile> = JSON.parse(
+      fs.readFileSync(clonedPath, "utf-8")
+    );
+    for (const [id, profile] of Object.entries(cloned)) {
+      ALL_PROFILES[id] = profile;
+    }
+    const count = Object.keys(cloned).length;
+    if (count > 0) {
+      console.log(`  → Loaded ${count} cloned voice profile(s) from cloned-voices.json`);
+    }
+  } catch {
+    // Silently ignore parse errors
+  }
+}
+
+// Auto-load on import
+loadClonedVoices();
+
+/** Get a voice profile by ID (falls back to "raju" as default).
+ *  Checks both built-in and cloned voice profiles. */
 export function getVoiceProfile(profileId?: string): VoiceProfile {
-  if (!profileId) return VOICE_PROFILES.raju;
-  return VOICE_PROFILES[profileId] ?? VOICE_PROFILES.raju;
+  if (!profileId) return ALL_PROFILES.raju ?? VOICE_PROFILES.raju;
+  return ALL_PROFILES[profileId] ?? VOICE_PROFILES.raju;
+}
+
+/** Get all available voice profiles (built-in + cloned) */
+export function getAllVoiceProfiles(): Record<string, VoiceProfile> {
+  return { ...ALL_PROFILES };
 }
 
 /* ── Humanization Engine ──────────────────────────────────────────── */
@@ -245,9 +284,57 @@ function humanizeText(text: string, profile: VoiceProfile): string {
 
 /* ── Main TTS Function ────────────────────────────────────────────── */
 
+/* ── Audio Smoothing Post-Processor ──────────────────────────────── */
+
+/**
+ * Apply broadcast-quality audio processing to any generated voice file.
+ * Makes the voice sound silky smooth and professional:
+ *   - High-pass filter: removes low rumble (< 100Hz)
+ *   - Loudness normalization: EBU R128 -16 LUFS (broadcast standard)
+ *   - Soft compressor: glues dynamics without squashing the voice
+ *   - Presence EQ: subtle 3kHz boost for clarity and warmth
+ *   - Brick-wall limiter: prevents clipping at 0dBFS
+ */
+export async function smoothAudio(inputFile: string): Promise<string> {
+  if (!fs.existsSync(inputFile)) return inputFile;
+
+  const dir = path.dirname(inputFile);
+  const ext = path.extname(inputFile);
+  const base = path.basename(inputFile, ext);
+  const smoothedFile = path.join(dir, `${base}_smooth${ext}`);
+
+  // Full broadcast-grade filter chain
+  const filterChain = [
+    "highpass=f=100",                                                           // remove low rumble
+    "acompressor=threshold=-24dB:ratio=3:attack=5:release=80:makeup=2",         // soft compression
+    "equalizer=f=250:width_type=o:width=2:g=-1",                                // reduce boxiness
+    "equalizer=f=3000:width_type=o:width=2:g=1.5",                              // presence & clarity
+    "loudnorm=I=-16:LRA=8:TP=-1.5",                                             // EBU R128 loudness
+    "alimiter=limit=0.95:attack=5:release=50",                                  // brick-wall limiter
+  ].join(",");
+
+  const cmd = `ffmpeg -y -i "${inputFile}" -af "${filterChain}" -q:a 2 "${smoothedFile}"`;
+
+  try {
+    await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+    if (fs.existsSync(smoothedFile)) {
+      // Replace original with smoothed version
+      fs.renameSync(smoothedFile, inputFile);
+      console.log(`  → Audio smoothed: EQ + compression + loudnorm applied`);
+    }
+  } catch {
+    // If ffmpeg post-processing fails, keep original unsmoothed audio
+    if (fs.existsSync(smoothedFile)) fs.unlinkSync(smoothedFile);
+    console.warn(`  ⚠  Audio smoothing skipped (ffmpeg not available in PATH)`);
+  }
+
+  return inputFile;
+}
+
 /**
  * Generate voice using ElevenLabs API (for voice cloning).
  * Requires ELEVENLABS_API_KEY environment variable.
+ * Uses smoothness-optimised voice settings for natural, cinematic delivery.
  */
 async function generateVoiceElevenLabs(
   text: string,
@@ -268,10 +355,12 @@ async function generateVoiceElevenLabs(
     text,
     modelId: modelId,
     voiceSettings: {
-      stability: 0.5,
-      similarityBoost: 0.75,
-      style: 0.5,
-      useSpeakerBoost: true,
+      // ── Smoothness-optimised settings ──────────────────────────────
+      stability: 0.80,          // High stability → consistent, smooth delivery (was 0.5)
+      similarityBoost: 0.85,    // Stay close to cloned voice (was 0.75)
+      style: 0.20,              // Low style exaggeration → natural, not over-acted (was 0.5)
+      useSpeakerBoost: true,    // Enhances voice clarity and presence
+      // ───────────────────────────────────────────────────────────────
     },
   });
 
@@ -335,7 +424,9 @@ export async function generateVoice(
         profile.elevenlabs.voiceId,
         profile.elevenlabs.modelId
       );
-      console.log(`  → Voice saved: ${outFile} (ElevenLabs, humanized=${profile.humanize.breathPauses})`);
+      // Apply broadcast-quality audio smoothing
+      await smoothAudio(outFile);
+      console.log(`  → Voice saved: ${outFile} (ElevenLabs, smoothed, humanized=${profile.humanize.breathPauses})`);
       return outFile;
     } catch (err: any) {
       console.warn(`  ⚠️  ElevenLabs failed (${err.message}), falling back to Edge TTS…`);
@@ -364,6 +455,9 @@ export async function generateVoice(
     throw new Error("TTS failed — voice.mp3 was not created.");
   }
 
-  console.log(`  → Voice saved: ${outFile} (humanized=${profile.humanize.breathPauses})`);
+  // Apply broadcast-quality audio smoothing to Edge TTS output too
+  await smoothAudio(outFile);
+
+  console.log(`  → Voice saved: ${outFile} (Edge TTS, smoothed, humanized=${profile.humanize.breathPauses})`);
   return outFile;
 }

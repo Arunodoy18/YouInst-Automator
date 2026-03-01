@@ -195,6 +195,36 @@ export const CUSTOM_PRESETS: Record<string, {
   },
 
   /**
+   * SUBWAY SURFER - Endless runner gaming background
+   * - Uses subway_surfers.mp4 from assets/backgrounds/endless_runner/
+   * - High energy motion for maximum retention
+   * - Yellow/orange gaming accent colors
+   */
+  subway_surfer: {
+    visual: {
+      mode: "endless_runner",
+      accentColor: "#FFD700",       // Gold/yellow like Subway Surfers coins
+      motionIntensity: "high",
+      patternInterruptSec: 3,
+      captionStyle: "bold_center",
+    },
+    motion: {
+      intensity: "high",
+      patternInterruptSec: 3,
+      enableGrain: false,           // Clean gaming look
+      enableVignette: true,
+      glitchIntensity: 0,
+      chromaticAberration: 0,
+    },
+    caption: {
+      accentColor: "#FFD700",       // Gold accent for power words
+      fontSize: 78,
+      fadeMs: 120,
+    },
+    description: "Subway Surfers gaming background: high energy, gold accents, endless runner vibes",
+  },
+
+  /**
    * TRON LEGACY - Blue grid aesthetic
    * - Medium smooth motion
    * - Electric blue accents
