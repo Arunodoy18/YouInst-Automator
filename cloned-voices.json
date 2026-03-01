@@ -1,18 +1,20 @@
 {
   "raju_cloned": {
     "id": "raju_cloned",
-    "label": "raju_cloned (Matched)",
-    "description": "Edge TTS matched — Energetic neutral male voice (very_fast pace) with moderate expressiveness",
+    "label": "Raju Cloned",
+    "description": "Voice trained from input/Raju.mp4 — Edge TTS fallback (ElevenLabs Creator plan needed for true clone). Reference audio: output/voice-training-raju_cloned-1772346551750/",
     "voice": {
       "voice": "hi-IN-MadhurNeural",
-      "rate": "+10%",
-      "pitch": "+1Hz"
+      "rate": "+18%",
+      "pitch": "+3Hz"
     },
     "language": "hindi",
     "humanize": {
       "breathPauses": true,
       "fillers": true,
-      "rateVariation": true
-    }
+      "rateVariation": false
+    },
+    "_referenceAudio": "output/voice-training-raju_cloned-1772346551750/training_seg_0.wav",
+    "_note": "True voice cloning blocked (ElevenLabs free tier). SSML prosody variation active in Edge TTS fallback."
   }
 }

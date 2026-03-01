@@ -374,6 +374,53 @@ async function generateVoiceElevenLabs(
 }
 
 /**
+ * Build an SSML document for edge-tts that varies prosody per sentence.
+ * Sentence-level prosody variation is CRUCIAL — real speech always changes
+ * rate and pitch between sentences. Applying a uniform flat offset produces
+ * the characteristic "robot" sound.
+ *
+ * Strategy:
+ *  - Hook (first sentence): fast, high energy, louder
+ *  - Middle: alternating rate/pitch to hold attention
+ *  - CTA (last sentence): slightly slower, highest pitch confidence
+ */
+function buildSSML(text: string, voice: string, _baseRate: string, _basePitch: string): string {
+  const sentences = text
+    .split(/(?<=[।.!?])\s+|(?<=।)/)
+    .map(s => s.trim())
+    .filter(s => s.length > 3);
+
+  const patterns = [
+    { rate: "+22%", pitch: "+4st", volume: "+10%" },
+    { rate: "+18%", pitch: "+2st", volume: "+5%"  },
+    { rate: "+15%", pitch: "+3st", volume: "+5%"  },
+    { rate: "+20%", pitch: "+1st", volume: "+8%"  },
+    { rate: "+14%", pitch: "+2st", volume: "+5%"  },
+    { rate: "+19%", pitch: "+3st", volume: "+8%"  },
+  ];
+
+  const escXml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+     .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+
+  let doc = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="hi-IN">\n`;
+  doc += `  <voice name="${voice}">\n`;
+
+  sentences.forEach((sentence, i) => {
+    const p = patterns[i % patterns.length];
+    const isCTA = i === sentences.length - 1;
+    const rate  = isCTA ? "+12%" : p.rate;
+    const pitch = isCTA ? "+5st" : p.pitch;
+
+    doc += `    <prosody rate="${rate}" pitch="${pitch}" volume="${p.volume}">${escXml(sentence)}</prosody>\n`;
+    if (!isCTA) doc += `    <break time="160ms"/>\n`;
+  });
+
+  doc += `  </voice>\n</speak>`;
+  return doc;
+}
+
+/**
  * Convert text to speech using the Python `edge-tts` CLI.
  * Saves the result as an MP3 file.
  *
@@ -427,22 +474,39 @@ export async function generateVoice(
     }
   }
 
-  // ── Fallback to Edge TTS ───────────────────────────────────────────
-  // Escape double-quotes inside the text for shell safety
-  const safeText = processedText.replace(/"/g, '\\"');
+  // ── Edge TTS with SSML for expressive prosody ──────────────────────
+  const ssmlContent = buildSSML(processedText, cfg.voice, cfg.rate, cfg.pitch);
 
-  // Build edge-tts command with voice config
+  // Write SSML to a temp file — avoids all shell-escaping complexity
+  const ssmlFile = path.resolve(outputDir, "_tts_ssml.xml");
+  fs.writeFileSync(ssmlFile, ssmlContent, "utf-8");
+
   const command = [
     `edge-tts`,
-    `--text "${safeText}"`,
+    `--file "${ssmlFile}"`,
     `--voice "${cfg.voice}"`,
-    `--rate="${cfg.rate}"`,
-    `--pitch="${cfg.pitch}"`,
     `--write-media "${outFile}"`,
   ].join(" ");
 
-  console.log(`  → Running Edge TTS (${cfg.voice}, rate=${cfg.rate}, profile=${profile.id})…`);
-  await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
+  console.log(`  → Running Edge TTS SSML (${cfg.voice}, prosody-varied, profile=${profile.id})…`);
+  try {
+    await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
+  } catch {
+    // SSML may fail on some edge-tts versions — fall back to plain text
+    console.warn(`  ⚠  SSML TTS failed, falling back to plain text…`);
+    const safeText = processedText.replace(/"/g, '\\"');
+    const fallbackCmd = [
+      `edge-tts`,
+      `--text "${safeText}"`,
+      `--voice "${cfg.voice}"`,
+      `--rate="${cfg.rate}"`,
+      `--pitch="${cfg.pitch}"`,
+      `--write-media "${outFile}"`,
+    ].join(" ");
+    await execAsync(fallbackCmd, { maxBuffer: 10 * 1024 * 1024 });
+  } finally {
+    if (fs.existsSync(ssmlFile)) fs.unlinkSync(ssmlFile);
+  }
 
   if (!fs.existsSync(outFile)) {
     throw new Error("TTS failed — voice.mp3 was not created.");
