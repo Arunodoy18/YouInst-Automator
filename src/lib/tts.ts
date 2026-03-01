@@ -243,41 +243,34 @@ export function getAllVoiceProfiles(): Record<string, VoiceProfile> {
 
 /**
  * Apply human-like speech patterns to text before sending to TTS.
- * Makes the voice sound natural, not robotic:
- *   - Adds breath pauses (commas / ellipses for natural prosody)
- *   - Inserts micro-pauses between sentences
- *   - Adds emphasis markers on key words
+ * Keeps delivery natural — avoids over-engineering that makes voices robotic:
+ *   - Removes "..." patterns (Edge TTS reads them as identical mechanical gaps)
+ *   - Adds light comma-beats before natural connector words only
+ *   - Lets Edge TTS's neural model handle prosody/emphasis naturally
  */
 function humanizeText(text: string, profile: VoiceProfile): string {
   let processed = text;
 
-  if (profile.humanize.breathPauses) {
-    // Add micro pause after short sentences (for breath effect)
-    processed = processed.replace(/([.!?])\s+/g, "$1 ... ");
+  // Strip any pre-existing "..." — Edge TTS reads them as literal gaps
+  // which creates the mechanical robotic cadence. Remove them entirely.
+  processed = processed.replace(/\s*\.\.\.\s*/g, " ");
 
-    // Add slight pause before impactful words
+  if (profile.humanize.breathPauses) {
+    // Insert a light comma-pause ONLY before connector words that naturally
+    // benefit from a brief breath beat. Do NOT pause after every sentence end —
+    // Edge TTS's neural model already handles "." "!" "?" as natural prosodic breaks.
     processed = processed.replace(
-      /\b(but|because|actually|seriously|honestly|listen|look|imagine|think about it)\b/gi,
+      /\s+(but|because|and that's|which means|so now|the thing is)\b/gi,
       ", $1"
     );
-
-    // Add pause after numbers/stats for impact
-    processed = processed.replace(/(\d+[%KMBkm]?)\s/g, "$1, ");
   }
 
-  if (profile.humanize.rateVariation) {
-    // For edge-tts we can't vary rate mid-stream, but we can add
-    // emphasis via pauses: slow down on key claims
-    processed = processed.replace(
-      /\b(never|always|everyone|nobody|impossible|guaranteed|secret|truth|shocking|insane|crazy)\b/gi,
-      "... $1 ..."
-    );
-  }
+  // NOTE: The old rateVariation logic wrapped power words as "... word ..."
+  // which sandwiched identical robotic gaps around every "never", "impossible", etc.
+  // Removed — Edge TTS's neural model stresses these words naturally on its own.
 
-  // Clean up multiple consecutive pauses / commas
-  processed = processed.replace(/(\.\.\.\s*){2,}/g, "... ");
+  // Clean up any double commas introduced above
   processed = processed.replace(/(,\s*){2,}/g, ", ");
-  processed = processed.replace(/,\s*\.\.\./g, "...");
 
   return processed.trim();
 }

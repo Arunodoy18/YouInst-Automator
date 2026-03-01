@@ -324,7 +324,9 @@ export async function runFullPipeline(
     const voicePath = await generateVoice(agentScript.fullScript, outputDir, undefined, voiceProfile.id);
 
     logger.info("  [8b] Transcribing for word-level captions…");
-    const segments = await transcribeWithWhisper(voicePath, outputDir);
+    // Pass the script text as initial_prompt so Whisper recognises brand names (Claude, OpenAI, etc.)
+    const whisperPrompt = `${topic}. ${agentScript.fullScript}`.slice(0, 400);
+    const segments = await transcribeWithWhisper(voicePath, outputDir, whisperPrompt);
     const captions = groupWordsIntoCaptions(segments, 5);
     logger.info(`Created ${captions.length} timed captions`);
 

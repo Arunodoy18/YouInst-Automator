@@ -5,7 +5,7 @@
     "description": "Edge TTS matched — Energetic neutral male voice (very_fast pace) with moderate expressiveness",
     "voice": {
       "voice": "hi-IN-MadhurNeural",
-      "rate": "+18%",
+      "rate": "+10%",
       "pitch": "+1Hz"
     },
     "language": "hindi",

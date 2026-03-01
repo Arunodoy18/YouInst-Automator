@@ -19,13 +19,52 @@ export interface WhisperSegment {
 }
 
 /**
+ * Common tech/brand name misrecognitions Whisper makes with base model.
+ * Applied after transcription as a safety net.
+ */
+const CAPTION_CORRECTIONS: [RegExp, string][] = [
+  [/\bcloud\b/g, "Claude"],
+  [/\bClaude's\b/g, "Claude's"],
+  [/\bopen a i\b/gi, "OpenAI"],
+  [/\bopen ai\b/gi, "OpenAI"],
+  [/\bopen-ai\b/gi, "OpenAI"],
+  [/\bgit hub\b/gi, "GitHub"],
+  [/\bco-?pilot\b/gi, "Copilot"],
+  [/\bco pilot\b/gi, "Copilot"],
+  [/\bcodex\b/gi, "Codex"],
+  [/\bgpt-?4o\b/gi, "GPT-4o"],
+  [/\bgpt-?4\b/gi, "GPT-4"],
+  [/\bgpt-?3\b/gi, "GPT-3"],
+  [/\banthropic\b/gi, "Anthropic"],
+  [/\bgemini\b/gi, "Gemini"],
+  [/\bllm\b/gi, "LLM"],
+  [/\bllms\b/gi, "LLMs"],
+  [/\bapi\b/gi, "API"],
+  [/\bapis\b/gi, "APIs"],
+];
+
+function correctCaptionText(text: string): string {
+  let fixed = text;
+  for (const [pattern, replacement] of CAPTION_CORRECTIONS) {
+    fixed = fixed.replace(pattern, replacement);
+  }
+  return fixed;
+}
+
+/**
  * Run Whisper on an audio file to get word-level timestamps.
  * Uses the "base" model for speed (good enough for TTS audio).
  * Returns segments with word-level timing.
+ *
+ * @param audioPath   - Path to the audio file
+ * @param outputDir   - Directory to store whisper_output.json
+ * @param initialPrompt - Optional: script text / keywords to prime Whisper vocabulary
+ *                        Pass the generated script so Whisper recognises brand names correctly.
  */
 export async function transcribeWithWhisper(
   audioPath: string,
-  outputDir: string
+  outputDir: string,
+  initialPrompt?: string
 ): Promise<WhisperSegment[]> {
   const jsonOutput = path.resolve(outputDir, "whisper_output.json");
   const scriptFile = path.resolve(outputDir, "_whisper_run.py");
@@ -42,12 +81,16 @@ export async function transcribeWithWhisper(
   const audioPosix = audioPath.replace(/\\/g, "/");
   const jsonPosix = jsonOutput.replace(/\\/g, "/");
 
+  // Escape the prompt for injection into the Python script string
+  const escapedPrompt = (initialPrompt || "").slice(0, 400).replace(/\\/g, "\\\\").replace(/"/g, "\\'");
+
   const pythonScript = `
 import whisper
 import json
 
 model = whisper.load_model("base")
-result = model.transcribe("${audioPosix}", word_timestamps=True)
+prompt_text = "${escapedPrompt}"
+result = model.transcribe("${audioPosix}", word_timestamps=True, initial_prompt=prompt_text if prompt_text else None)
 
 segments = []
 for seg in result["segments"]:
@@ -100,6 +143,14 @@ print("OK")
 
   const raw = fs.readFileSync(jsonOutput, "utf-8");
   const segments: WhisperSegment[] = JSON.parse(raw);
+
+  // Post-process: fix brand/tech name misrecognitions (e.g. "cloud" → "Claude")
+  for (const seg of segments) {
+    seg.text = correctCaptionText(seg.text);
+    for (const w of seg.words) {
+      w.word = correctCaptionText(w.word);
+    }
+  }
 
   console.log(`  → Whisper found ${segments.length} segments, ${segments.reduce((n, s) => n + s.words.length, 0)} words`);
 
