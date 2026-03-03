@@ -48,7 +48,7 @@ Deploy the YouInst-Automator platform with a split architecture:
   - GOLPO_API_KEY
   - BOBA_ANIME_API_KEY
   - REROLL_API_KEY (optional)
-  - GROQ_API_KEY
+  - OPENAI_API_KEY
 
 ---
 
@@ -81,7 +81,7 @@ REDIS_URL=redis://...
 GOLPO_API_KEY=your_key_here
 BOBA_ANIME_API_KEY=your_key_here
 REROLL_API_KEY=your_key_here
-GROQ_API_KEY=your_groq_key
+OPENAI_API_KEY=sk-proj-your_key_here
 
 # VoiceBox
 VOICEBOX_MODEL_PATH=/opt/render/project/src/models/voicebox

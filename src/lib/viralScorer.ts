@@ -18,14 +18,14 @@
  *  - Orchestrator Step 5 (post-topic-generation ranking)
  *  - API /api/score-topics (manual scoring from dashboard)
  */
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import { getNicheConfig } from "./niches";
 import logger from "./logger";
 
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "gpt-4-turbo-preview";
 
-function getGroq(): Groq {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getOpenAI(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export async function scoreTopics(
   }
 
   const niche = getNicheConfig(nicheId);
-  const groq = getGroq();
+  const openai = getOpenAI();
 
   // Cap at 20 to keep prompt manageable
   const cappedTopics = topics.slice(0, 20);
@@ -137,7 +137,7 @@ RULES:
 - The "whyItWillPerform" should be specific to the topic and platform, not generic.
 - Do NOT add extra fields or commentary outside the JSON array.`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.6, // Lower temp for consistent scoring

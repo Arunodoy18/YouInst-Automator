@@ -12,7 +12,7 @@
  *
  * Output: VerifiedResearch JSON or { error: string } on failure.
  */
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import logger from "./logger";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -49,10 +49,10 @@ export function isResearchError(result: ResearchResult): result is ResearchError
 
 // ── Groq Client ──────────────────────────────────────────────────────
 
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "gpt-4-turbo-preview";
 
-function getGroq(): Groq {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getOpenAI(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
 function getCurrentYear(): number {
@@ -74,7 +74,7 @@ function extractJson<T>(raw: string): T {
 // ── Step 1: Research Agent ───────────────────────────────────────────
 
 async function runResearchAgent(topic: string, nicheLabel: string): Promise<string> {
-  const groq = getGroq();
+  const openai = getOpenAI();
   const year = getCurrentYear();
   const date = getCurrentDate();
 
@@ -123,7 +123,7 @@ CRITICAL RULES:
 
 Output ONLY valid JSON.`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.3, // Low temp for factual accuracy
@@ -136,7 +136,7 @@ Output ONLY valid JSON.`;
 // ── Step 2: Normalize & Validate ─────────────────────────────────────
 
 async function normalizeResearch(rawResearchJson: string, topic: string): Promise<string> {
-  const groq = getGroq();
+  const openai = getOpenAI();
   const year = getCurrentYear();
   const date = getCurrentDate();
 
@@ -184,7 +184,7 @@ RULES:
 - Every URL must look like a real domain (not example.com or placeholder.url).
 - Output ONLY valid JSON.`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.1, // Very low temp for strict validation

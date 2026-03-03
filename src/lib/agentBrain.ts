@@ -1,21 +1,21 @@
 /**
  * Agent Brain — AI Content Intelligence Layer
  *
- * Central orchestrator that uses Groq LLM to:
+ * Central orchestrator that uses OpenAI to:
  * 1. Pick trending topics per niche
  * 2. Generate optimized scripts with psychological triggers
  * 3. Create platform-specific SEO metadata
  * 4. Score hook quality
  * 5. Self-improve based on analytics feedback
  */
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import { getNicheConfig, NicheConfig } from "./niches";
 import logger from "./logger";
 
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "gpt-4-turbo-preview";
 
-function getGroq(): Groq {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getOpenAI(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ export async function generateTopics(
   count: number = 5
 ): Promise<TopicSuggestion[]> {
   const niche = getNicheConfig(nicheId);
-  const groq = getGroq();
+  const openai = getOpenAI();
 
   const trendContext = trendKeywords.length > 0
     ? `\nCurrently trending keywords in this niche: ${trendKeywords.join(", ")}`
@@ -200,7 +200,7 @@ Output ONLY valid JSON array, nothing else:
   { "topic": "specific topic title", "angle": "educational|controversial|aspirational|listicle|story", "viralScore": 85 }
 ]`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 1.0,
@@ -211,7 +211,7 @@ Output ONLY valid JSON array, nothing else:
   try {
     return extractJson<TopicSuggestion[]>(raw);
   } catch (err) {
-    logger.error("Failed to parse topics from Groq", { raw: raw.slice(0, 300) });
+    logger.error("Failed to parse topics from OpenAI", { raw: raw.slice(0, 300) });
     // Fallback: return seed topics
     return niche.topicSeeds.slice(0, count).map((t) => ({
       topic: t,
@@ -229,7 +229,7 @@ export async function generateAgentScript(
   options?: { useHookGenerator?: boolean; platform?: HookPlatform; intelligence?: IntelligenceConfig }
 ): Promise<AgentScript> {
   const niche = getNicheConfig(nicheId);
-  const groq = getGroq();
+  const openai = getOpenAI();
   const intel = options?.intelligence ?? DEFAULT_INTELLIGENCE;
 
   // Select triggers based on psychology mode + retention level
@@ -301,7 +301,7 @@ Output ONLY this JSON (no markdown, no fences):
 
 hookScore: rate the hook's scroll-stopping power from 1-100.`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: retentionCfg.temperature,
@@ -360,7 +360,7 @@ export async function optimizeHook(
   nicheId: string
 ): Promise<{ hook: string; score: number }> {
   const niche = getNicheConfig(nicheId);
-  const groq = getGroq();
+  const openai = getOpenAI();
 
   const prompt = `You are a hook optimization specialist for ${niche.label} short-form video.
 
@@ -377,7 +377,7 @@ Rules:
 Output ONLY JSON:
 { "hook": "improved hook text", "score": 90 }`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.95,
@@ -403,7 +403,7 @@ export async function generateHooks(
   psychologyMode?: PsychologyMode
 ): Promise<RankedHook[]> {
   const niche = getNicheConfig(nicheId);
-  const groq = getGroq();
+  const openai = getOpenAI();
   const mode = psychologyMode ?? "aggressive";
 
   const modeDirective = PSYCHOLOGY_MODE_STYLE[mode];
@@ -445,7 +445,7 @@ Output ONLY this JSON array (no markdown, no fences):
 
 score: rate scroll-stopping power 1-100. Return exactly 5 hooks.`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 1.0,
@@ -458,7 +458,7 @@ score: rate scroll-stopping power 1-100. Return exactly 5 hooks.`;
     // Ensure sorted by score descending (most aggressive first)
     return hooks.sort((a, b) => b.score - a.score).slice(0, 5);
   } catch (err) {
-    logger.error("Failed to parse hooks from Groq", { raw: raw.slice(0, 300) });
+    logger.error("Failed to parse hooks from OpenAI", { raw: raw.slice(0, 300) });
     // Fallback: return a single generic hook
     return [
       { hook: `This ${niche.label.toLowerCase()} secret changes everything`, trigger: "pattern_interrupt", score: 60 },
@@ -473,7 +473,7 @@ export async function generatePinnedComment(
   nicheId: string
 ): Promise<string> {
   const niche = getNicheConfig(nicheId);
-  const groq = getGroq();
+  const openai = getOpenAI();
 
   const prompt = `Generate a pinned comment for an Instagram Reel about "${topic}" in the ${niche.label} niche.
 
@@ -485,7 +485,7 @@ Rules:
 
 Output ONLY the comment text, nothing else.`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.9,

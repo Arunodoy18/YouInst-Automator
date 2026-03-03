@@ -25,7 +25,7 @@ Add these API keys to `.env`:
 
 ```env
 # Required
-GROQ_API_KEY=gsk_your_key_here
+OPENAI_API_KEY=sk-proj-your_key_here
 
 # Open Source AI Tools (at least one video API required)
 GOLPO_API_KEY=your_golpo_key           # Get at: https://golpo.ai/signup

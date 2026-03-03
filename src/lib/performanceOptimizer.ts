@@ -21,14 +21,14 @@
  *   - Dashboard /api/analyze-performance
  *   - Scheduled cron job (daily self-learning digest)
  */
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import prisma from "./db";
 import logger from "./logger";
 
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "gpt-4-turbo-preview";
 
-function getGroq(): Groq {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getOpenAI(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ export async function analyzePerformance(
     return emptyAnalysis("No videos with analytics data found.");
   }
 
-  const groq = getGroq();
+  const openai = getOpenAI();
 
   // ── Pre-compute summaries so the LLM has clean data ──
   const totalViews = metrics.reduce((s, m) => s + m.views, 0);
@@ -291,7 +291,7 @@ Output ONLY this JSON (no markdown fences, no explanation outside JSON):
   }
 }`;
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.4, // Low temp for analytical consistency

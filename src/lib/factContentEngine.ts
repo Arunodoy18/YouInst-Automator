@@ -13,7 +13,7 @@
  *   - Script, captions, and overlays must reference the EXACT same names
  *   - Never hallucinate new items or replace verified ones
  */
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import logger from "./logger";
 import { getNicheConfig } from "./niches";
 import type { VerifiedResearch } from "./factResearch";
@@ -65,10 +65,10 @@ export interface FactBasedContent {
 
 // ── Groq Client ──────────────────────────────────────────────────────
 
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "gpt-4-turbo-preview";
 
-function getGroq(): Groq {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getOpenAI(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
 function extractJson<T>(raw: string): T {
@@ -126,7 +126,7 @@ export async function generateFactContent(
   nicheId: string,
   intelligence?: IntelligenceConfig
 ): Promise<FactBasedContent> {
-  const groq = getGroq();
+  const openai = getOpenAI();
   const niche = getNicheConfig(nicheId);
   const mode = intelligence?.psychologyMode ?? "aggressive";
   const retention = intelligence?.retentionLevel ?? "enhanced";
@@ -231,7 +231,7 @@ OUTPUT (JSON only, no markdown, no fences):
     `[FactContent] Generating content for "${research.topic}" with ${itemNames.length} verified items`
   );
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.7,

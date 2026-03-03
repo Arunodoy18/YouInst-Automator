@@ -298,7 +298,7 @@ async function main() {
   await checkEdgeTTS();
   await checkElevenLabs();
   await checkRemotion();
-  await checkGroqAPI();
+  await checkOpenAIAPI();
   await checkYouTubeAuth();
   await checkInstagramAuth();
   await checkOutputDirectory();

@@ -18,7 +18,7 @@
  *
  * Feeds back into the orchestrator for auto-improvement.
  */
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import logger from "./logger";
 
 /* ── Types ─────────────────────────────────────────────────────────── */
@@ -51,10 +51,10 @@ export interface RetentionInput {
 
 /* ── Groq Client ──────────────────────────────────────────────────── */
 
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "gpt-4-turbo-preview";
 
-function getGroq(): Groq {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getOpenAI(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
 function extractJson<T>(raw: string): T {
@@ -74,7 +74,7 @@ function extractJson<T>(raw: string): T {
 export async function scoreRetention(
   input: RetentionInput
 ): Promise<RetentionReport> {
-  const groq = getGroq();
+  const openai = getOpenAI();
 
   const prompt = `You are a short-form content retention analyst. Your job is to evaluate video content for maximum viewer retention.
 
@@ -173,7 +173,7 @@ RULES:
 
   logger.info(`[RetentionScorer] Scoring content for: "${input.topic}"`);
 
-  const res = await groq.chat.completions.create({
+  const res = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     model: MODEL,
     temperature: 0.3, // Low temp for consistent, analytical scoring

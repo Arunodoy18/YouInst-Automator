@@ -1,4 +1,4 @@
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 
 export interface ScriptResult {
   hook: string;
@@ -9,7 +9,7 @@ export interface ScriptResult {
   fullScript: string;
 }
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function generateScript(topic: string): Promise<ScriptResult> {
   const prompt = `You are a viral YouTube Shorts scriptwriter.
@@ -32,9 +32,9 @@ Rules:
 - Make it dramatic and engaging
 - Output ONLY valid JSON, nothing else`;
 
-  const chatCompletion = await groq.chat.completions.create({
+  const chatCompletion = await openai.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
-    model: "llama-3.3-70b-versatile",
+    model: "gpt-4-turbo-preview",
     temperature: 0.9,
     max_tokens: 1024,
   });
@@ -44,14 +44,14 @@ Rules:
   // Extract JSON from the response (handles markdown fences if model ignores instruction)
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error(`Groq did not return valid JSON.\nRaw response:\n${raw}`);
+    throw new Error(`OpenAI did not return valid JSON.\nRaw response:\n${raw}`);
   }
 
   let parsed: Omit<ScriptResult, "fullScript">;
   try {
     parsed = JSON.parse(jsonMatch[0]) as Omit<ScriptResult, "fullScript">;
   } catch (e: any) {
-    throw new Error(`Groq JSON parse failed: ${e.message}\nExtracted:\n${jsonMatch[0]}`);
+    throw new Error(`OpenAI JSON parse failed: ${e.message}\nExtracted:\n${jsonMatch[0]}`);
   }
 
   const fullScript = `${parsed.hook} ${parsed.mainScript} ${parsed.cta}`;
