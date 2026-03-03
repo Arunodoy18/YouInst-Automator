@@ -161,11 +161,11 @@ async function checkRemotion(): Promise<void> {
   }
 }
 
-async function checkGroqAPI(): Promise<void> {
-  const apiKey = process.env.GROQ_API_KEY;
+async function checkOpenAIAPI(): Promise<void> {
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     results.push({
-      name: "Groq API Key",
+      name: "OpenAI API Key",
       status: "⚠️",
       message: "Not set in .env (required for script generation)",
       required: true,
@@ -173,18 +173,18 @@ async function checkGroqAPI(): Promise<void> {
     return;
   }
 
-  if (apiKey.startsWith("gsk_")) {
+  if (apiKey.startsWith("sk-")) {
     results.push({
-      name: "Groq API Key",
+      name: "OpenAI API Key",
       status: "✅",
       message: `Configured: ${apiKey.substring(0, 10)}...`,
       required: true,
     });
   } else {
     results.push({
-      name: "Groq API Key",
+      name: "OpenAI API Key",
       status: "⚠️",
-      message: "Invalid format (should start with 'gsk_')",
+      message: "Invalid format (should start with 'sk-')",
       required: true,
     });
   }

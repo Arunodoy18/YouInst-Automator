@@ -82,11 +82,19 @@ services:
         value: https://youinst-ai.onrender.com  # Update with YOUR service URL
 
       # ── AI (Required) ──
-      - key: GROQ_API_KEY
-        sync: false        # Enter in dashboard: gsk_...
+      - key: OPENAI_API_KEY
+        sync: false        # Enter in dashboard: sk-proj-...
 
-      # ── Voice (Optional) ──
+      # ── Voice & Audio (Optional) ──
       - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+
+      # ── Data Services (Optional) ──
+      - key: SERP_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
         sync: false
 
       # ── YouTube Upload (Optional) ──
@@ -151,11 +159,19 @@ services:
           property: connectionString
 
       # ── AI (Required) ──
-      - key: GROQ_API_KEY
+      - key: OPENAI_API_KEY
         sync: false
 
-      # ── Voice (Optional) ──
+      # ── Voice & Audio (Optional) ──
       - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+
+      # ── Data Services (Optional) ──
+      - key: SERP_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
         sync: false
 
       # ── YouTube Upload (Optional) ──
