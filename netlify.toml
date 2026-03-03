@@ -1,0 +1,64 @@
+# Netlify Configuration for YouInst-Automator Frontend
+
+[build]
+  base = "webapp"
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  NODE_VERSION = "18"
+  NEXT_PUBLIC_API_URL = "https://yourinst-api.onrender.com"
+
+# Redirect API calls to Render backend
+[[redirects]]
+  from = "/api/*"
+  to = "https://yourinst-api.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# Cache static assets
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Disable caching for HTML
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Preview deployments
+[context.deploy-preview]
+  [context.deploy-preview.environment]
+    NEXT_PUBLIC_API_URL = "https://yourinst-api-preview.onrender.com"
+
+# Branch deployments
+[context.branch-deploy]
+  command = "npm run build"
+
+# Development branch
+[context.dev]
+  [context.dev.environment]
+    NEXT_PUBLIC_API_URL = "http://localhost:10000"
